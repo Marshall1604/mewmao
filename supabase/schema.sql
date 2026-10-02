@@ -1,6 +1,8 @@
 -- =========================================================================
--- MEWMAO DISTILLERY - SUPABASE DATABASE SCHEMA
--- Dán toàn bộ mã SQL này vào: Supabase Dashboard -> SQL Editor -> Run
+-- MEWMAO DISTILLERY - SUPABASE DATABASE SCHEMA (BẢN CHUẨN 100%)
+-- HƯỚNG DẪN:
+-- 1. Nhấn Ctrl + A trong khung soạn thảo để chọn TOÀN BỘ.
+-- 2. Nhấn nút RUN (không bôi đen một đoạn nhỏ vì Supabase sẽ chỉ chạy đoạn đó).
 -- =========================================================================
 
 -- 1. BẢNG SELLERS (Đại Lý / Đại Sứ Mewmao)
@@ -41,7 +43,7 @@ create table if not exists public.orders (
   seller_commission numeric not null default 0,
   payment_method text not null default 'cod',
   payment_status text not null default 'unpaid',
-  status text not null default 'pending', -- pending, confirmed, shipping, delivered, cancelled
+  status text not null default 'pending',
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -53,17 +55,31 @@ create table if not exists public.payouts (
   bank_name text not null,
   account_number text not null,
   account_holder text not null,
-  status text not null default 'pending', -- pending, completed, rejected
+  status text not null default 'pending',
   requested_at text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 4. BẬT ROW LEVEL SECURITY (RLS) & CHÍNH SÁCH TRUY CẬP AN TOÀN
+-- 4. BẬT ROW LEVEL SECURITY (RLS)
 alter table public.sellers enable row level security;
 alter table public.orders enable row level security;
 alter table public.payouts enable row level security;
 
--- Cho phép đọc / thêm / cập nhật an toàn qua Anon Key
+-- Xóa policy cũ nếu chạy lại (tránh lỗi duplicate policy)
+drop policy if exists "Allow public read sellers" on public.sellers;
+drop policy if exists "Allow public insert sellers" on public.sellers;
+drop policy if exists "Allow public update sellers" on public.sellers;
+drop policy if exists "Allow public delete sellers" on public.sellers;
+
+drop policy if exists "Allow public read orders" on public.orders;
+drop policy if exists "Allow public insert orders" on public.orders;
+drop policy if exists "Allow public update orders" on public.orders;
+
+drop policy if exists "Allow public read payouts" on public.payouts;
+drop policy if exists "Allow public insert payouts" on public.payouts;
+drop policy if exists "Allow public update payouts" on public.payouts;
+
+-- Tạo các policy mới
 create policy "Allow public read sellers" on public.sellers for select using (true);
 create policy "Allow public insert sellers" on public.sellers for insert with check (true);
 create policy "Allow public update sellers" on public.sellers for update using (true);
@@ -77,8 +93,12 @@ create policy "Allow public read payouts" on public.payouts for select using (tr
 create policy "Allow public insert payouts" on public.payouts for insert with check (true);
 create policy "Allow public update payouts" on public.payouts for update using (true);
 
--- 5. THÊM DỮ LIỆU MẪU ĐẠI SỨ ĐẦU TIÊN (NẾU BẢNG TRỐNG)
-insert into public.sellers (id, name, phone, email, affiliate_code, pin, commission_rate, balance, total_earned, total_withdrawn, bank_name, account_number, account_holder, status)
+-- 5. DỮ LIỆU MẪU ĐẠI SỨ ĐẦU TIÊN
+insert into public.sellers (
+  id, name, phone, email, affiliate_code, pin, 
+  commission_rate, balance, total_earned, total_withdrawn, 
+  bank_name, account_number, account_holder, status
+)
 values
   ('seller-1', 'Minh Đức (DJ)', '0912345678', 'duc.dj@mewmao.vn', 'DJDUC', '123456', 0.15, 260000, 760000, 500000, 'Techcombank', '1903678912345', 'NGUYEN MINH DUC', 'active'),
   ('seller-2', 'Hà Anh (Mixologist)', '0987654321', 'haanh.bar@mewmao.vn', 'HAANH', '567890', 0.15, 480000, 1180000, 700000, 'Vietcombank', '0011004567890', 'TRAN HA ANH', 'active')
