@@ -2,59 +2,48 @@
 
 import React from "react";
 import { useStore } from "@/context/StoreContext";
-import { ShieldAlert, Wine } from "lucide-react";
 
 export default function AgeGateModal() {
-  const { isAgeVerified, verifyAge, t } = useStore();
+  const { isAgeVerified, verifyAge, language } = useStore();
+  const isEn = language === "en";
 
   if (isAgeVerified) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in">
-      <div className="relative w-full max-w-md p-8 sm:p-10 bg-zinc-950 border border-white/08 rounded-3xl shadow-2xl text-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-white/95 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="w-full max-w-sm mx-auto flex flex-col items-center text-center space-y-4 sm:space-y-5 my-auto py-6">
+        
+        {/* 1. Header: Mewmao Distillery (Cùng màu & font như trang Home) */}
+        <h1 className="font-serif text-3xl sm:text-4xl font-black tracking-tight text-zinc-950 leading-none">
+          Mewmao <span className="italic font-normal text-amber-gradient font-serif">Distillery.</span>
+        </h1>
 
-        {/* Mewmao Mascot Cat Holding Bottle */}
-        <div className="w-28 mx-auto mb-3 aspect-[472/685] flex items-center justify-center">
+        {/* 2. Ảnh chú mèo bỉm hồng kẹo mút (Liền mạch nền trắng, không đóng khung, độ mờ vừa phải) */}
+        <div className="relative w-48 sm:w-56 aspect-[571/1024] flex items-center justify-center select-none my-1">
           <img
-            src="/images/mewmao-cat.png?v=hd4"
-            alt="Mewmao Mascot"
-            className="w-full h-full object-contain select-none drop-shadow-[0_10px_25px_rgba(255,100,0,0.18)]"
+            src="/images/mewmao-baby-cat.jpg?v=1"
+            alt="Mewmao Under 18 Mascot Cat"
+            className="w-full h-full object-contain mix-blend-multiply [mask-image:radial-gradient(ellipse_at_center,black_70%,transparent_98%)] drop-shadow-[0_10px_20px_rgba(0,0,0,0.05)]"
+            loading="eager"
           />
         </div>
 
-        <div className="space-y-2 mb-6">
-          <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-mewmao-orange font-bold block">
-            {t("age_tag")}
-          </span>
-          <h2 className="font-serif text-4xl font-black text-white leading-none">
-            {t("age_title")}
-          </h2>
-          <p className="text-xs text-white/40 font-light leading-relaxed pt-2">
-            {t("age_desc")}
-          </p>
-        </div>
+        {/* 3. Text nhỏ dưới ảnh */}
+        <p className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.25em] text-zinc-500 font-semibold">
+          Age Verification • 18+
+        </p>
 
-        <div className="space-y-3">
+        {/* 4. Button xác nhận */}
+        <div className="pt-1 w-full max-w-xs">
           <button
+            type="button"
             onClick={verifyAge}
-            className="w-full py-3.5 px-6 rounded-2xl bg-mewmao-orange hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-98 flex items-center justify-center gap-2"
+            className="btn-mewmao-black w-full justify-center py-3.5 text-xs font-bold font-sans shadow-md hover:shadow-lg transition-all"
           >
-            <span>{t("age_confirm")}</span>
-            <span>→</span>
+            {isEn ? "Over 18 Years Old" : "Đã trên 18 tuổi"}
           </button>
-
-          <a
-            href="https://google.com"
-            className="block w-full py-2.5 px-4 text-[11px] text-white/25 hover:text-white/50 transition-colors font-mono"
-          >
-            {t("age_exit")}
-          </a>
         </div>
 
-        <div className="mt-8 pt-4 border-t border-white/06 flex items-center justify-center gap-2 text-[10px] text-white/25 font-mono">
-          <ShieldAlert className="w-3.5 h-3.5" />
-          <span>{t("age_warning")}</span>
-        </div>
       </div>
     </div>
   );
