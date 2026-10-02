@@ -63,7 +63,7 @@ export default function SellerPortalPage() {
 
   // Origin URL for affiliate links
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://mewmao.vn";
+    typeof window !== "undefined" ? window.location.origin : "https://mewmao.com";
   const affiliateUrl = currentSeller
     ? `${origin}/?ref=${currentSeller.affiliateCode}`
     : "";

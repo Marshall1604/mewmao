@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Mewmao Distillery — Artisanal Vietnamese Plum Spirit",
     description: "The Taste of Night and Liberty. 19% ABV. Handcrafted in Vietnam.",
-    url: "https://mewmao.vn",
+    url: "https://mewmao.com",
     siteName: "Mewmao Distillery",
     locale: "en_US",
     type: "website",

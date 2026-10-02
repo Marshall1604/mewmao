@@ -235,7 +235,7 @@ export default function AdminPage() {
   };
 
   // ── AFFILIATE LINK HELPERS ──
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://mewmao.vn";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://mewmao.com";
 
   const handleCopySellerLink = (affiliateCode: string, sellerId: string) => {
     const link = `${origin}/?ref=${affiliateCode}`;
@@ -1796,14 +1796,14 @@ export default function AdminPage() {
 
                   <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-orange-200 text-xs font-mono">
                     <span className="text-zinc-600 truncate flex-1">
-                      {typeof window !== "undefined" ? window.location.origin : "https://mewmao.vn"}
+                      {typeof window !== "undefined" ? window.location.origin : "https://mewmao.com"}
                       /?ref=
                       <strong className="text-mewmao-orange">{sellerForm.affiliateCode || "MA_SELLER"}</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        const link = `${typeof window !== "undefined" ? window.location.origin : "https://mewmao.vn"}/?ref=${sellerForm.affiliateCode || "MA_SELLER"}`;
+                        const link = `${typeof window !== "undefined" ? window.location.origin : "https://mewmao.com"}/?ref=${sellerForm.affiliateCode || "MA_SELLER"}`;
                         navigator.clipboard.writeText(link);
                         alert("Đã sao chép đường link affiliate của Seller!");
                       }}
