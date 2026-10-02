@@ -236,12 +236,12 @@ export default function SellerPortalPage() {
             <div className="bg-white border border-zinc-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
               {/* Ảnh Con Mèo Cầm Chai Rượu & Tiêu Đề Seller */}
               <div className="text-center space-y-3">
-                <div className="w-36 sm:w-44 mx-auto aspect-[472/685] flex items-center justify-center -mt-1">
+                <div className="w-48 sm:w-56 mx-auto aspect-[504/650] flex items-center justify-center -mt-1">
                   <img
-                    src="/images/mewmao-cat.png?v=hd4"
-                    alt="Mewmao Cat Mascot"
+                    src="/images/mewmao-seller-box-cat.png?v=1"
+                    alt="Mewmao Seller Mascot Cat"
                     loading="eager"
-                    className="w-full h-full object-contain select-none drop-shadow-[0_12px_24px_rgba(0,0,0,0.08)]"
+                    className="w-full h-full object-contain select-none drop-shadow-[0_14px_28px_rgba(0,0,0,0.08)]"
                   />
                 </div>
                 <div className="space-y-1.5">

@@ -1,16 +1,21 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "@/context/StoreContext";
 
 const easeLuxury = [0.16, 1, 0.3, 1] as const;
 
 export default function AgeGateModal() {
+  const pathname = usePathname();
   const { isAgeVerified, verifyAge, language } = useStore();
   const isEn = language === "en";
   const [showPreview, setShowPreview] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
+
+  // Không hiển thị popup 18+ khi vào trang Admin / Dashboard
+  const isAdminPage = pathname.startsWith("/admin") || pathname.startsWith("/dashboard");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -20,6 +25,8 @@ export default function AgeGateModal() {
       }
     }
   }, []);
+
+  if (isAdminPage) return null;
 
   const isOpen = (!isAgeVerified || showPreview) && !isDismissing;
 
