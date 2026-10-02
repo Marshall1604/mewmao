@@ -27,10 +27,7 @@ export default function AgeGateModal() {
     }
   }, []);
 
-  // Nếu không phải trang chủ (và không có query ?age_gate=true) thì hoàn toàn không hiển thị
-  if (!isHomePage && !showPreview) return null;
-
-  const isOpen = (!isAgeVerified || showPreview) && !isDismissing;
+  const isOpen = (isHomePage || showPreview) && (!isAgeVerified || showPreview) && !isDismissing;
 
   // Lock scroll while age gate is open
   useEffect(() => {
@@ -53,6 +50,8 @@ export default function AgeGateModal() {
       setIsDismissing(false);
     }, 850);
   };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence mode="wait">

@@ -87,8 +87,12 @@ function setAffiliateCookie(code: string, days = 30) {
 
 function getAffiliateCookie(): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|; )mewmao_seller_ref=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  try {
+    const match = document.cookie.match(/(?:^|; )mewmao_seller_ref=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
