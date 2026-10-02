@@ -14,8 +14,9 @@ export default function AgeGateModal() {
   const [showPreview, setShowPreview] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
 
-  // Không hiển thị popup 18+ khi vào trang Admin / Dashboard
-  const isAdminPage = pathname.startsWith("/admin") || pathname.startsWith("/dashboard");
+  // CHỈ hiển thị popup 18+ khi đang ở trang chủ Home ("/")
+  // Tất cả các trang khác (/seller, /admin, /about, /blog, /partners, /dashboard...) KHÔNG cần xác minh
+  const isHomePage = pathname === "/" || pathname === "";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -26,7 +27,8 @@ export default function AgeGateModal() {
     }
   }, []);
 
-  if (isAdminPage) return null;
+  // Nếu không phải trang chủ (và không có query ?age_gate=true) thì hoàn toàn không hiển thị
+  if (!isHomePage && !showPreview) return null;
 
   const isOpen = (!isAgeVerified || showPreview) && !isDismissing;
 
