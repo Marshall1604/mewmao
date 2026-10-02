@@ -94,7 +94,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [product, setProduct] = useState<Product>(SIGNATURE_PRODUCT);
   const [cartQuantity, setCartQuantity] = useState<number>(1);
   const [isQuickBuyOpen, setIsQuickBuyOpen] = useState<boolean>(false);
-  const [isAgeVerified, setIsAgeVerified] = useState<boolean>(true);
+  const [isAgeVerified, setIsAgeVerified] = useState<boolean>(false);
   const [userRole, setUserRole] = useState<UserRole>("guest");
   const [sellers, setSellers] = useState<Seller[]>(INITIAL_SELLERS);
   const [currentSeller, setCurrentSeller] = useState<Seller | null>(null);
@@ -116,21 +116,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setLanguageState("en");
     }
 
+    // Clear persistent age verification so the 18+ gate always shows on every visit/reload
+    localStorage.removeItem("mewmao_age_verified");
+    setIsAgeVerified(false);
+
     // Check URL query parameters
     const urlParams = new URLSearchParams(window.location.search);
-    const forceAgeGate = urlParams.get("age_gate") === "true";
-
-    // Check age verification
-    if (forceAgeGate) {
-      setIsAgeVerified(false);
-    } else {
-      const verified = localStorage.getItem("mewmao_age_verified");
-      if (!verified) {
-        setIsAgeVerified(false);
-      } else {
-        setIsAgeVerified(true);
-      }
-    }
     const ref = urlParams.get("ref");
     if (ref) {
       const cleanRef = ref.trim().toUpperCase();
@@ -272,9 +263,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const verifyAge = () => {
     setIsAgeVerified(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mewmao_age_verified", "true");
-    }
   };
 
   const switchUserRole = (role: UserRole, sellerId?: string) => {
