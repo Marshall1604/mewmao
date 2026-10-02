@@ -50,6 +50,8 @@ interface StoreContextType {
     paymentMethod: "vietqr" | "cod";
   }) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  deleteOrder: (orderId: string) => Promise<boolean>;
+  refreshData: () => Promise<void>;
   requestPayout: (sellerId: string, amount: number) => boolean;
   approvePayout: (payoutId: string) => void;
   addSeller: (data: {
@@ -154,100 +156,126 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Synchronize initial data from Supabase
+  // Synchronize data from Supabase
+  const refreshData = async () => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    try {
+      // 1. Fetch Sellers
+      const { data: dbSellers, error: sellersErr } = await supabase
+        .from("sellers")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!sellersErr && dbSellers) {
+        const mappedSellers: Seller[] = dbSellers.map((row: any) => ({
+          id: row.id,
+          name: row.name,
+          email: row.email || "",
+          phone: row.phone || "",
+          role: "seller",
+          affiliateCode: row.affiliate_code,
+          pin: row.pin,
+          commissionRate: Number(row.commission_rate) || 0.15,
+          promoDiscountPerBottle: Number(row.discount_percent) || 0,
+          balance: Number(row.balance) || 0,
+          totalWithdrawn: Number(row.total_withdrawn) || 0,
+          totalEarned: Number(row.total_earned) || 0,
+          clicksCount: 0,
+          ordersCount: Number(row.orders_count) || 0,
+          bottlesSoldCount: Number(row.bottles_sold_count) || 0,
+          createdAt: row.created_at ? row.created_at.split("T")[0] : "",
+          bankInfo: {
+            bankName: row.bank_name || "",
+            accountNumber: row.account_number || "",
+            accountHolder: row.account_holder || "",
+          },
+        }));
+        setSellers(mappedSellers);
+      }
+
+      // 2. Fetch Orders
+      const { data: dbOrders, error: ordersErr } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!ordersErr && dbOrders) {
+        const mappedOrders: Order[] = dbOrders.map((row: any) => ({
+          id: row.id,
+          customerName: row.customer_name,
+          customerPhone: row.customer_phone,
+          customerAddress: row.customer_address,
+          customerNote: row.customer_note || "",
+          items: Array.isArray(row.items) ? row.items : [],
+          subtotalAmount: Number(row.subtotal) || 289000,
+          discountAmount: Number(row.discount_amount) || 0,
+          totalAmount: Number(row.total_amount) || 289000,
+          paymentMethod: row.payment_method || "cod",
+          paymentStatus: row.payment_status || "unpaid",
+          status: row.status || "pending",
+          affiliateCode: row.affiliate_code || undefined,
+          sellerCommission: Number(row.seller_commission) || 0,
+          createdAt: row.created_at ? row.created_at.replace("T", " ").slice(0, 16) : "",
+        }));
+        setOrders(mappedOrders);
+      }
+
+      // 3. Fetch Payouts
+      const { data: dbPayouts, error: payoutsErr } = await supabase
+        .from("payouts")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!payoutsErr && dbPayouts) {
+        const mappedPayouts: PayoutRequest[] = dbPayouts.map((row: any) => ({
+          id: row.id,
+          sellerId: row.seller_id,
+          sellerName: row.account_holder || "",
+          amount: Number(row.amount) || 0,
+          bankInfo: {
+            bankName: row.bank_name || "",
+            accountNumber: row.account_number || "",
+            accountHolder: row.account_holder || "",
+          },
+          status: row.status || "pending",
+          requestedAt: row.requested_at || "",
+        }));
+        setPayouts(mappedPayouts);
+      }
+    } catch (err) {
+      console.warn("Supabase refreshData error:", err);
+    }
+  };
+
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
-    const fetchSupabaseData = async () => {
-      try {
-        // 1. Fetch Sellers
-        const { data: dbSellers, error: sellersErr } = await supabase
-          .from("sellers")
-          .select("*")
-          .order("created_at", { ascending: false });
+    refreshData();
 
-        if (!sellersErr && dbSellers && dbSellers.length > 0) {
-          const mappedSellers: Seller[] = dbSellers.map((row: any) => ({
-            id: row.id,
-            name: row.name,
-            email: row.email || "",
-            phone: row.phone || "",
-            role: "seller",
-            affiliateCode: row.affiliate_code,
-            pin: row.pin,
-            commissionRate: Number(row.commission_rate) || 0.15,
-            promoDiscountPerBottle: Number(row.discount_percent) || 0,
-            balance: Number(row.balance) || 0,
-            totalWithdrawn: Number(row.total_withdrawn) || 0,
-            totalEarned: Number(row.total_earned) || 0,
-            clicksCount: 0,
-            ordersCount: Number(row.orders_count) || 0,
-            bottlesSoldCount: Number(row.bottles_sold_count) || 0,
-            createdAt: row.created_at ? row.created_at.split("T")[0] : "",
-            bankInfo: {
-              bankName: row.bank_name || "",
-              accountNumber: row.account_number || "",
-              accountHolder: row.account_holder || "",
-            },
-          }));
-          setSellers(mappedSellers);
-        }
+    // Setup Supabase Realtime Channel
+    const channel = supabase
+      .channel("mewmao-store-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        refreshData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, () => {
+        refreshData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "payouts" }, () => {
+        refreshData();
+      })
+      .subscribe();
 
-        // 2. Fetch Orders
-        const { data: dbOrders, error: ordersErr } = await supabase
-          .from("orders")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!ordersErr && dbOrders && dbOrders.length > 0) {
-          const mappedOrders: Order[] = dbOrders.map((row: any) => ({
-            id: row.id,
-            customerName: row.customer_name,
-            customerPhone: row.customer_phone,
-            customerAddress: row.customer_address,
-            customerNote: row.customer_note || "",
-            items: Array.isArray(row.items) ? row.items : [],
-            subtotalAmount: Number(row.subtotal) || 289000,
-            discountAmount: Number(row.discount_amount) || 0,
-            totalAmount: Number(row.total_amount) || 289000,
-            paymentMethod: row.payment_method || "cod",
-            paymentStatus: row.payment_status || "unpaid",
-            status: row.status || "pending",
-            affiliateCode: row.affiliate_code || undefined,
-            sellerCommission: Number(row.seller_commission) || 0,
-            createdAt: row.created_at ? row.created_at.replace("T", " ").slice(0, 16) : "",
-          }));
-          setOrders(mappedOrders);
-        }
-
-        // 3. Fetch Payouts
-        const { data: dbPayouts, error: payoutsErr } = await supabase
-          .from("payouts")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!payoutsErr && dbPayouts && dbPayouts.length > 0) {
-          const mappedPayouts: PayoutRequest[] = dbPayouts.map((row: any) => ({
-            id: row.id,
-            sellerId: row.seller_id,
-            sellerName: row.account_holder || "",
-            amount: Number(row.amount) || 0,
-            bankInfo: {
-              bankName: row.bank_name || "",
-              accountNumber: row.account_number || "",
-              accountHolder: row.account_holder || "",
-            },
-            status: row.status || "pending",
-            requestedAt: row.requested_at || "",
-          }));
-          setPayouts(mappedPayouts);
-        }
-      } catch (err) {
-        console.warn("Supabase fetch fallback to local state:", err);
-      }
+    const handleFocus = () => {
+      refreshData();
     };
+    window.addEventListener("focus", handleFocus);
 
-    fetchSupabaseData();
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
   const setLanguage = (lang: Language) => {
@@ -400,8 +428,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           })
           .eq("id", sellerToCredit.id)
           .then(({ error }) => {
-            if (error)
+            if (error) {
               console.error("Error updating seller in Supabase:", error);
+            } else {
+              refreshData();
+            }
           });
       }
     }
@@ -420,9 +451,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .update({ status })
         .eq("id", orderId)
         .then(({ error }) => {
-          if (error) console.error("Error updating order status in Supabase:", error);
+          if (error) {
+            console.error("Error updating order status in Supabase:", error);
+          } else {
+            refreshData();
+          }
         });
     }
+  };
+
+  const deleteOrder = async (orderId: string): Promise<boolean> => {
+    setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from("orders").delete().eq("id", orderId);
+      if (error) {
+        console.error("Error deleting order from Supabase:", error);
+        return false;
+      }
+      await refreshData();
+    }
+    return true;
   };
 
   const addSeller = (data: {
@@ -499,7 +548,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           status: "active",
         })
         .then(({ error }) => {
-          if (error) console.error("Error inserting seller into Supabase:", error);
+          if (error) {
+            console.error("Error inserting seller into Supabase:", error);
+          } else {
+            refreshData();
+          }
         });
     }
 
@@ -518,7 +571,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .delete()
         .eq("id", sellerId)
         .then(({ error }) => {
-          if (error) console.error("Error deleting seller from Supabase:", error);
+          if (error) {
+            console.error("Error deleting seller from Supabase:", error);
+          } else {
+            refreshData();
+          }
         });
     }
   };
@@ -556,8 +613,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .update(payload)
           .eq("id", sellerId)
           .then(({ error }) => {
-            if (error)
+            if (error) {
               console.error("Error updating seller in Supabase:", error);
+            } else {
+              refreshData();
+            }
           });
       }
     }
@@ -696,6 +756,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         b2bInquiries,
         placeOrder,
         updateOrderStatus,
+        deleteOrder,
+        refreshData,
         requestPayout,
         approvePayout,
         addSeller,

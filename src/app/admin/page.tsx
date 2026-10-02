@@ -45,6 +45,8 @@ export default function AdminPage() {
     sellers,
     orders,
     updateOrderStatus,
+    deleteOrder,
+    refreshData,
     payouts,
     approvePayout,
     addSeller,
@@ -54,6 +56,11 @@ export default function AdminPage() {
     updateStock,
     b2bInquiries,
   } = useStore();
+
+  // ── REFRESH & LIVE SYNC STATES ──
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>("");
+  const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
 
   // ── 1. PIN 6 SỐ BẢO MẬT (/admin) ──
   const MASTER_PIN = "000000";
@@ -116,6 +123,37 @@ export default function AdminPage() {
     setPinDigits(["", "", "", "", "", ""]);
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("mewmao_admin_session_unlocked");
+    }
+  };
+
+  // ── MANUAL & AUTO SYNC WITH SUPABASE ──
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    const now = new Date();
+    setLastRefreshedAt(
+      `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`
+    );
+    setTimeout(() => setIsRefreshing(false), 400);
+  };
+
+  useEffect(() => {
+    if (!isUnlocked) return;
+    handleManualRefresh();
+    const interval = setInterval(() => {
+      refreshData();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isUnlocked]);
+
+  const handleDeleteOrder = async (orderId: string, customerName: string) => {
+    if (window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn đơn hàng ${orderId} của khách "${customerName}" khỏi hệ thống?`)) {
+      setIsDeletingOrder(orderId);
+      const success = await deleteOrder(orderId);
+      setIsDeletingOrder(null);
+      if (!success) {
+        alert("Có lỗi khi xóa đơn hàng. Vui lòng thử lại!");
+      }
     }
   };
 
@@ -439,6 +477,20 @@ export default function AdminPage() {
 
               {/* Status & Lock Button */}
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 hover:bg-zinc-100 text-xs text-zinc-700 hover:text-zinc-950 transition-colors font-medium cursor-pointer"
+                  title="Đồng bộ dữ liệu thời gian thực từ Supabase"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-mewmao-orange" : "text-zinc-500"}`} />
+                  <span>{isRefreshing ? "Đang đồng bộ..." : "Đồng bộ"}</span>
+                  {lastRefreshedAt && (
+                    <span className="text-[10px] text-zinc-400 font-mono hidden md:inline">({lastRefreshedAt})</span>
+                  )}
+                </button>
+
                 <Link
                   href="/"
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 hover:bg-zinc-100 text-xs text-zinc-600 hover:text-zinc-950 transition-colors font-medium"
@@ -1008,14 +1060,26 @@ export default function AdminPage() {
                               )}
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => setPrintingOrder(ord)}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span>In phiếu</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setPrintingOrder(ord)}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>In</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOrder(ord.id, ord.customerName)}
+                                disabled={isDeletingOrder === ord.id}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors"
+                                title="Xóa vĩnh viễn đơn hàng"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Xóa</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1039,7 +1103,7 @@ export default function AdminPage() {
                         <th className="py-3 px-4 whitespace-nowrap">Người Giới Thiệu</th>
                         <th className="py-3 px-4 whitespace-nowrap">Hoa Hồng</th>
                         <th className="py-3 px-4 whitespace-nowrap">Trạng Thái Đơn</th>
-                        <th className="py-3 px-4 whitespace-nowrap text-right">In Phiếu</th>
+                        <th className="py-3 px-4 whitespace-nowrap text-right">Thao Tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
@@ -1118,15 +1182,27 @@ export default function AdminPage() {
                                 </select>
                               </td>
                               <td className="py-3 px-4 text-right whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => setPrintingOrder(ord)}
-                                  className="inline-flex items-center gap-1 text-[11px] text-zinc-600 hover:text-zinc-950 p-1.5 rounded-md hover:bg-zinc-100 transition-colors"
-                                  title="In phiếu gửi hàng"
-                                >
-                                  <Printer className="w-3.5 h-3.5" />
-                                  <span>In phiếu</span>
-                                </button>
+                                <div className="inline-flex items-center gap-1.5 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPrintingOrder(ord)}
+                                    className="inline-flex items-center gap-1 text-[11px] text-zinc-600 hover:text-zinc-950 px-2 py-1 rounded-md hover:bg-zinc-100 transition-colors"
+                                    title="In phiếu gửi hàng"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    <span>In</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteOrder(ord.id, ord.customerName)}
+                                    disabled={isDeletingOrder === ord.id}
+                                    className="inline-flex items-center gap-1 text-[11px] text-red-500 hover:text-red-700 px-2 py-1 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
+                                    title="Xóa vĩnh viễn đơn hàng"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Xóa</span>
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
