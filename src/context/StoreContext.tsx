@@ -135,6 +135,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const savedOrders = localStorage.getItem("mewmao_orders");
+    if (savedOrders) {
+      try {
+        const parsed = JSON.parse(savedOrders);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setOrders(parsed);
+        }
+      } catch (e) {
+        console.warn("Error parsing saved orders from localStorage:", e);
+      }
+    }
+
     // Check URL query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get("ref");
@@ -291,6 +303,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           createdAt: row.created_at ? row.created_at.replace("T", " ").slice(0, 16) : "",
         }));
         setOrders(mappedOrders);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("mewmao_orders", JSON.stringify(mappedOrders));
+        }
       }
 
       // 3. Fetch Payouts
@@ -434,7 +449,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Update orders
-    setOrders((prev) => [newOrder, ...prev]);
+    setOrders((prev) => {
+      const updated = [newOrder, ...prev.filter((o) => o.id !== newOrder.id)];
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mewmao_orders", JSON.stringify(updated));
+      }
+      return updated;
+    });
 
     // Update product stock
     const remainingStock = Math.max(0, product.stock - data.quantity);
@@ -543,9 +564,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((ord) => (ord.id === orderId ? { ...ord, status } : ord))
-    );
+    setOrders((prev) => {
+      const updated = prev.map((ord) => (ord.id === orderId ? { ...ord, status } : ord));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mewmao_orders", JSON.stringify(updated));
+      }
+      return updated;
+    });
 
     try {
       fetch("/api/orders", {
@@ -573,7 +598,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteOrder = async (orderId: string): Promise<boolean> => {
-    setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+    setOrders((prev) => {
+      const updated = prev.filter((ord) => ord.id !== orderId);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mewmao_orders", JSON.stringify(updated));
+      }
+      return updated;
+    });
 
     try {
       const res = await fetch("/api/orders", {

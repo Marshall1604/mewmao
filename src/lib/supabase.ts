@@ -1,11 +1,22 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://wjmtlewjkommnaylysiu.supabase.co";
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "sb_publishable_NbeYcoaaFx2YPXe_4yQyEQ_Bvc4E73i";
+export function sanitizeSupabaseUrl(rawUrl?: string): string {
+  let url = (rawUrl || "https://wjmtlewjkommnaylysiu.supabase.co").trim();
+  url = url.replace(/^["']|["']$/g, "");
+  url = url.replace(/\/rest\/v1\/?$/i, "");
+  url = url.replace(/\/+$/, "");
+  return url;
+}
+
+export function sanitizeSupabaseKey(rawKey?: string, defaultKey: string = ""): string {
+  let key = (rawKey || defaultKey).trim();
+  return key.replace(/^["']|["']$/g, "");
+}
+
+const supabaseUrl = sanitizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+const supabaseAnonKey = sanitizeSupabaseKey(
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
