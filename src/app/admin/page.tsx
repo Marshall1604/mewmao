@@ -362,11 +362,14 @@ export default function AdminPage() {
     setSellerModalOpen(false);
   };
 
-  const handleDeleteSeller = (sellerId: string, sellerName: string) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa Seller "${sellerName}" khỏi hệ thống?`)) {
-      deleteSeller(sellerId);
+  const handleDeleteSeller = async (sellerId: string, sellerName: string) => {
+    if (confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn Seller "${sellerName}" khỏi hệ thống?`)) {
+      const success = await deleteSeller(sellerId);
       if (viewingSeller?.id === sellerId) {
         setViewingSeller(null);
+      }
+      if (!success) {
+        alert("Có lỗi khi xóa Seller. Vui lòng thử lại!");
       }
     }
   };

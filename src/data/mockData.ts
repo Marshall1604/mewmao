@@ -32,54 +32,7 @@ export const SIGNATURE_PRODUCT: Product = {
   isAvailable: true,
 };
 
-export const INITIAL_SELLERS: Seller[] = [
-  {
-    id: "seller-1",
-    name: "Minh Đức (Underground DJ / Producer)",
-    email: "duc.underground@mewmao.vn",
-    phone: "0988776655",
-    role: "seller",
-    affiliateCode: "DJDUC",
-    pin: "123456",
-    commissionRate: 0.15, // 15%
-    promoDiscountPerBottle: 0,
-    balance: 0,
-    totalWithdrawn: 0,
-    totalEarned: 0,
-    clicksCount: 0,
-    ordersCount: 0,
-    bottlesSoldCount: 0,
-    createdAt: "2026-10-01",
-    bankInfo: {
-      bankName: "MB Bank",
-      accountNumber: "0988776655",
-      accountHolder: "LE MINH DUC",
-    },
-  },
-  {
-    id: "seller-2",
-    name: "Hà Anh (Head Bartender & Mixologist)",
-    email: "haanh.cocktail@mewmao.vn",
-    phone: "0912345678",
-    role: "seller",
-    affiliateCode: "HAANH",
-    pin: "567890",
-    commissionRate: 0.15,
-    promoDiscountPerBottle: 0,
-    balance: 0,
-    totalWithdrawn: 0,
-    totalEarned: 0,
-    clicksCount: 0,
-    ordersCount: 0,
-    bottlesSoldCount: 0,
-    createdAt: "2026-10-01",
-    bankInfo: {
-      bankName: "Techcombank",
-      accountNumber: "190334889910",
-      accountHolder: "NGUYEN HA ANH",
-    },
-  },
-];
+export const INITIAL_SELLERS: Seller[] = [];
 
 export const INITIAL_ORDERS: Order[] = [];
 

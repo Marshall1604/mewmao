@@ -68,7 +68,7 @@ interface StoreContextType {
       accountHolder: string;
     };
   }) => Seller;
-  deleteSeller: (sellerId: string) => void;
+  deleteSeller: (sellerId: string) => Promise<boolean>;
   updateSeller: (sellerId: string, updates: Partial<Seller>) => void;
   updateStock: (newStock: number) => void;
   submitB2BInquiry: (data: Omit<B2BInquiry, "id" | "status" | "createdAt">) => void;
@@ -175,12 +175,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     try {
       // 1. Fetch Sellers & System Inventory
-      const { data: dbSellers, error: sellersErr } = await supabase
-        .from("sellers")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let dbSellers: any[] | null = null;
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase
+          .from("sellers")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!error && data) {
+          dbSellers = data;
+        }
+      }
 
-      if (!sellersErr && dbSellers) {
+      if (!dbSellers) {
+        try {
+          const apiRes = await fetch("/api/sellers");
+          if (apiRes.ok) {
+            const json = await apiRes.json();
+            if (json.data) dbSellers = json.data;
+          }
+        } catch (e) {
+          console.warn("API sellers fallback error:", e);
+        }
+      }
+
+      if (dbSellers) {
         // Extract system inventory if present
         const systemInventory = dbSellers.find(
           (row: any) => row.id === "system-inventory" || row.status === "system"
@@ -592,29 +610,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     setSellers((prev) => [...prev, newSeller]);
 
+    const dbPayload = {
+      id: newSeller.id,
+      name: newSeller.name,
+      phone: newSeller.phone,
+      email: newSeller.email,
+      affiliate_code: newSeller.affiliateCode,
+      pin: newSeller.pin,
+      commission_rate: newSeller.commissionRate,
+      discount_code: null,
+      discount_percent: newSeller.promoDiscountPerBottle,
+      bottles_sold_count: 0,
+      orders_count: 0,
+      balance: 0,
+      total_earned: 0,
+      total_withdrawn: 0,
+      bank_name: newSeller.bankInfo.bankName,
+      account_number: newSeller.bankInfo.accountNumber,
+      account_holder: newSeller.bankInfo.accountHolder,
+      status: "active",
+    };
+
+    try {
+      fetch("/api/sellers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dbPayload),
+      }).then(() => refreshData());
+    } catch (e) {
+      console.warn("API add seller error:", e);
+    }
+
     if (isSupabaseConfigured && supabase) {
       supabase
         .from("sellers")
-        .insert({
-          id: newSeller.id,
-          name: newSeller.name,
-          phone: newSeller.phone,
-          email: newSeller.email,
-          affiliate_code: newSeller.affiliateCode,
-          pin: newSeller.pin,
-          commission_rate: newSeller.commissionRate,
-          discount_code: null,
-          discount_percent: newSeller.promoDiscountPerBottle,
-          bottles_sold_count: 0,
-          orders_count: 0,
-          balance: 0,
-          total_earned: 0,
-          total_withdrawn: 0,
-          bank_name: newSeller.bankInfo.bankName,
-          account_number: newSeller.bankInfo.accountNumber,
-          account_holder: newSeller.bankInfo.accountHolder,
-          status: "active",
-        })
+        .insert(dbPayload)
         .then(({ error }) => {
           if (error) {
             console.error("Error inserting seller into Supabase:", error);
@@ -627,25 +657,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return newSeller;
   };
 
-  const deleteSeller = (sellerId: string) => {
+  const deleteSeller = async (sellerId: string): Promise<boolean> => {
     setSellers((prev) => prev.filter((s) => s.id !== sellerId));
     if (currentSeller && currentSeller.id === sellerId) {
       setCurrentSeller(null);
     }
 
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("sellers")
-        .delete()
-        .eq("id", sellerId)
-        .then(({ error }) => {
-          if (error) {
-            console.error("Error deleting seller from Supabase:", error);
-          } else {
-            refreshData();
-          }
-        });
+    let deletedViaApi = false;
+    try {
+      const res = await fetch("/api/sellers", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sellerId }),
+      });
+      if (res.ok) {
+        deletedViaApi = true;
+        await refreshData();
+      }
+    } catch (e) {
+      console.warn("API delete seller error:", e);
     }
+
+    if (!deletedViaApi && isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from("sellers").delete().eq("id", sellerId);
+      if (error) {
+        console.error("Error deleting seller from Supabase:", error);
+        return false;
+      }
+      await refreshData();
+    }
+    return true;
   };
 
   const updateSeller = (sellerId: string, updates: Partial<Seller>) => {
@@ -662,20 +703,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
-    if (isSupabaseConfigured && supabase) {
-      const payload: any = {};
-      if (updates.name !== undefined) payload.name = updates.name;
-      if (updates.phone !== undefined) payload.phone = updates.phone;
-      if (updates.email !== undefined) payload.email = updates.email;
-      if (updates.pin !== undefined) payload.pin = updates.pin;
-      if (updates.commissionRate !== undefined)
-        payload.commission_rate = updates.commissionRate;
-      if (updates.bankInfo) {
-        payload.bank_name = updates.bankInfo.bankName;
-        payload.account_number = updates.bankInfo.accountNumber;
-        payload.account_holder = updates.bankInfo.accountHolder;
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.email !== undefined) payload.email = updates.email;
+    if (updates.pin !== undefined) payload.pin = updates.pin;
+    if (updates.commissionRate !== undefined)
+      payload.commission_rate = updates.commissionRate;
+    if (updates.bankInfo) {
+      payload.bank_name = updates.bankInfo.bankName;
+      payload.account_number = updates.bankInfo.accountNumber;
+      payload.account_holder = updates.bankInfo.accountHolder;
+    }
+
+    if (Object.keys(payload).length > 0) {
+      try {
+        fetch("/api/sellers", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: sellerId, updates: payload }),
+        }).then(() => refreshData());
+      } catch (e) {
+        console.warn("API update seller error:", e);
       }
-      if (Object.keys(payload).length > 0) {
+
+      if (isSupabaseConfigured && supabase) {
         supabase
           .from("sellers")
           .update(payload)
