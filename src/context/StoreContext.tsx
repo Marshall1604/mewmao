@@ -249,12 +249,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2. Fetch Orders
-      const { data: dbOrders, error: ordersErr } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let dbOrders: any[] | null = null;
+      if (isSupabaseConfigured && supabase) {
+        const { data, error: ordersErr } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (!ordersErr && data) {
+          dbOrders = data;
+        }
+      }
 
-      if (!ordersErr && dbOrders) {
+      if (!dbOrders) {
+        try {
+          const apiRes = await fetch("/api/orders");
+          if (apiRes.ok) {
+            const json = await apiRes.json();
+            if (json.data) dbOrders = json.data;
+          }
+        } catch (e) {
+          console.warn("API orders fallback error:", e);
+        }
+      }
+
+      if (dbOrders) {
         const mappedOrders: Order[] = dbOrders.map((row: any) => ({
           id: row.id,
           customerName: row.customer_name,
@@ -461,25 +479,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (error) console.error("Error updating inventory in Supabase:", error);
         });
 
-      // 2. Insert order
+      // 2. Insert order to DB
+      const orderDbPayload = {
+        id: newOrder.id,
+        customer_name: newOrder.customerName,
+        customer_phone: newOrder.customerPhone,
+        customer_address: newOrder.customerAddress,
+        customer_note: newOrder.customerNote || null,
+        items: newOrder.items,
+        subtotal: newOrder.subtotalAmount,
+        discount_amount: newOrder.discountAmount,
+        total_amount: newOrder.totalAmount,
+        affiliate_code: newOrder.affiliateCode || null,
+        seller_commission: newOrder.sellerCommission,
+        payment_method: newOrder.paymentMethod,
+        payment_status: newOrder.paymentStatus,
+        status: newOrder.status,
+      };
+
+      try {
+        fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(orderDbPayload),
+        }).then(() => refreshData());
+      } catch (e) {
+        console.warn("API insert order fallback error:", e);
+      }
+
       supabase
         .from("orders")
-        .insert({
-          id: newOrder.id,
-          customer_name: newOrder.customerName,
-          customer_phone: newOrder.customerPhone,
-          customer_address: newOrder.customerAddress,
-          customer_note: newOrder.customerNote || null,
-          items: newOrder.items,
-          subtotal: newOrder.subtotalAmount,
-          discount_amount: newOrder.discountAmount,
-          total_amount: newOrder.totalAmount,
-          affiliate_code: newOrder.affiliateCode || null,
-          seller_commission: newOrder.sellerCommission,
-          payment_method: newOrder.paymentMethod,
-          payment_status: newOrder.paymentStatus,
-          status: newOrder.status,
-        })
+        .insert(orderDbPayload)
         .then(({ error }) => {
           if (error) {
             console.error("Error inserting order into Supabase:", error);
@@ -516,6 +546,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setOrders((prev) =>
       prev.map((ord) => (ord.id === orderId ? { ...ord, status } : ord))
     );
+
+    try {
+      fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId, updates: { status } }),
+      }).then(() => refreshData());
+    } catch (e) {
+      console.warn("API update order status error:", e);
+    }
 
     if (isSupabaseConfigured && supabase) {
       supabase
