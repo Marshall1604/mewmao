@@ -63,7 +63,7 @@ export default function AdminPage() {
   const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
 
   // ── 1. PIN 6 SỐ BẢO MẬT (/admin) ──
-  const MASTER_PIN = "000000";
+  const MASTER_PIN = process.env.NEXT_PUBLIC_MASTER_ADMIN_PIN || "241091";
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [pinError, setPinError] = useState<string>("");
@@ -103,7 +103,7 @@ export default function AdminPage() {
           sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
         }
       } else {
-        setPinError("Mã PIN không đúng. Vui lòng nhập lại (Mã mặc định: 000000)");
+        setPinError("Mã PIN không đúng. Vui lòng thử lại.");
         setTimeout(() => {
           setPinDigits(["", "", "", "", "", ""]);
           inputRefs.current[0]?.focus();
@@ -412,13 +412,9 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {pinError ? (
+            {pinError && (
               <p className="text-xs text-red-500 font-mono animate-fade-in">
                 {pinError}
-              </p>
-            ) : (
-              <p className="text-[11px] text-zinc-400 font-mono">
-                Mã PIN mặc định: <strong className="text-zinc-700">000000</strong>
               </p>
             )}
 
