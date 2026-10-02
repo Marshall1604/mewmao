@@ -298,40 +298,7 @@ export default function SellerPortalPage() {
                 </button>
               </form>
 
-              {/* Demo Hint */}
-              <div className="p-3.5 rounded-2xl bg-orange-50/60 border border-orange-200/60 space-y-1.5 text-center">
-                <span className="text-[10px] uppercase font-bold text-mewmao-orange tracking-wider block">
-                  {isEn ? "💡 Quick Demo Hint" : "💡 Gợi Ý Thử Nghiệm Nhanh"}
-                </span>
-                <p className="text-[11px] text-zinc-600 leading-snug">
-                  Minh Đức (DJ): <strong className="font-mono text-zinc-900">PIN: 123456</strong>
-                  <br />
-                  Hà Anh (Mixologist): <strong className="font-mono text-zinc-900">PIN: 567890</strong>
-                </p>
-                <div className="flex justify-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPinDigits(["1", "2", "3", "4", "5", "6"]);
-                      verifyPin("123456");
-                    }}
-                    className="text-[11px] text-mewmao-orange font-semibold hover:underline"
-                  >
-                    {isEn ? "Log in with PIN 123456 →" : "Vào bằng PIN 123456 →"}
-                  </button>
-                  <span className="text-zinc-300">•</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPinDigits(["5", "6", "7", "8", "9", "0"]);
-                      verifyPin("567890");
-                    }}
-                    className="text-[11px] text-mewmao-orange font-semibold hover:underline"
-                  >
-                    {isEn ? "Log in with PIN 567890 →" : "Vào bằng PIN 567890 →"}
-                  </button>
-                </div>
-              </div>
+
 
               {/* Contact Admin Support */}
               <div className="text-center pt-2">

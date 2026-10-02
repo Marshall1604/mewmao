@@ -64,11 +64,15 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 py-14 grid grid-cols-1 md:grid-cols-3 gap-10 text-xs">
         {/* Brand column */}
         <div className="space-y-4 md:col-span-1">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-white text-zinc-950 flex items-center justify-center font-serif font-black text-sm">
-              M
-            </div>
-            <span className="font-serif font-black tracking-tight text-lg text-white">MEWMAO</span>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/images/mewmao-logo-orange.png"
+              alt="Mewmao Logo"
+              className="h-8 w-auto object-contain"
+            />
+            <span className="text-[9px] tracking-[0.35em] uppercase text-white/50 font-sans font-semibold border-l border-white/20 pl-2">
+              Distillery
+            </span>
           </div>
           <p className="text-white/35 font-light leading-relaxed">{t("footer_desc")}</p>
           <div className="pt-1 font-mono text-white/20 text-[11px]">{t("footer_spec")}</div>

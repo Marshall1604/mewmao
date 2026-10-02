@@ -57,18 +57,15 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-xl bg-zinc-950 flex items-center justify-center text-white font-serif font-black text-base shadow-sm group-hover:bg-mewmao-orange transition-colors">
-              M
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="font-serif text-lg sm:text-xl font-black tracking-tight text-zinc-950 group-hover:text-mewmao-orange transition-colors">
-                MEWMAO
-              </span>
-              <span className="text-[9px] tracking-[0.35em] uppercase text-zinc-400 font-sans font-medium">
-                Distillery
-              </span>
-            </div>
+          <Link href="/" className="flex items-center gap-3 group py-1">
+            <img
+              src="/images/mewmao-logo-orange.png"
+              alt="Mewmao Logo"
+              className="h-9 sm:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+            />
+            <span className="text-[9px] tracking-[0.35em] uppercase text-zinc-400 font-sans font-semibold border-l border-zinc-200/80 pl-2.5 hidden sm:inline-block">
+              Distillery
+            </span>
           </Link>
 
           {/* Desktop Nav */}
