@@ -417,7 +417,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           status: newOrder.status,
         })
         .then(({ error }) => {
-          if (error) console.error("Error inserting order into Supabase:", error);
+          if (error) {
+            console.error("Error inserting order into Supabase:", error);
+          } else {
+            refreshData();
+          }
         });
 
       if (sellerToCredit) {
@@ -466,6 +470,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const deleteOrder = async (orderId: string): Promise<boolean> => {
     setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+
+    try {
+      const res = await fetch("/api/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId }),
+      });
+      if (res.ok) {
+        await refreshData();
+        return true;
+      }
+    } catch (e) {
+      console.warn("API delete fallback to client:", e);
+    }
 
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.from("orders").delete().eq("id", orderId);

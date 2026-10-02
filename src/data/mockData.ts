@@ -39,17 +39,17 @@ export const INITIAL_SELLERS: Seller[] = [
     email: "duc.underground@mewmao.vn",
     phone: "0988776655",
     role: "seller",
-    affiliateCode: "DUCMEW",
+    affiliateCode: "DJDUC",
     pin: "123456",
     commissionRate: 0.15, // 15%
-    promoDiscountPerBottle: 0, // Không áp dụng giảm giá, nhận diện tự động qua Cookie
-    balance: 867000,
-    totalWithdrawn: 1734000,
-    totalEarned: 2601000,
-    clicksCount: 384,
-    ordersCount: 60,
-    bottlesSoldCount: 72,
-    createdAt: "2026-09-15",
+    promoDiscountPerBottle: 0,
+    balance: 0,
+    totalWithdrawn: 0,
+    totalEarned: 0,
+    clicksCount: 0,
+    ordersCount: 0,
+    bottlesSoldCount: 0,
+    createdAt: "2026-10-01",
     bankInfo: {
       bankName: "MB Bank",
       accountNumber: "0988776655",
@@ -62,17 +62,17 @@ export const INITIAL_SELLERS: Seller[] = [
     email: "haanh.cocktail@mewmao.vn",
     phone: "0912345678",
     role: "seller",
-    affiliateCode: "HAANHBAR",
+    affiliateCode: "HAANH",
     pin: "567890",
     commissionRate: 0.15,
-    promoDiscountPerBottle: 0, // Không áp dụng giảm giá, nhận diện tự động qua Cookie
-    balance: 1300500,
-    totalWithdrawn: 3034500,
-    totalEarned: 4335000,
-    clicksCount: 620,
-    ordersCount: 100,
-    bottlesSoldCount: 124,
-    createdAt: "2026-09-18",
+    promoDiscountPerBottle: 0,
+    balance: 0,
+    totalWithdrawn: 0,
+    totalEarned: 0,
+    clicksCount: 0,
+    ordersCount: 0,
+    bottlesSoldCount: 0,
+    createdAt: "2026-10-01",
     bankInfo: {
       bankName: "Techcombank",
       accountNumber: "190334889910",
@@ -81,124 +81,9 @@ export const INITIAL_SELLERS: Seller[] = [
   },
 ];
 
-export const INITIAL_ORDERS: Order[] = [
-  {
-    id: "MM-9821",
-    customerName: "Trần Thế Bảo",
-    customerPhone: "0901234567",
-    customerAddress: "42 Lý Thường Kiệt, Hoàn Kiếm, Hà Nội",
-    customerNote: "Giao sau 18h tối giúp mình nhé",
-    items: [
-      {
-        productId: SIGNATURE_PRODUCT.id,
-        name: SIGNATURE_PRODUCT.name,
-        quantity: 2,
-        price: SIGNATURE_PRODUCT.price,
-      },
-    ],
-    totalAmount: 578000,
-    paymentMethod: "vietqr",
-    paymentStatus: "paid",
-    status: "delivered",
-    affiliateCode: "DUCMEW",
-    sellerCommission: 86700,
-    createdAt: "2026-09-28 14:30",
-  },
-  {
-    id: "MM-9822",
-    customerName: "Nguyễn Vũ Linh",
-    customerPhone: "0918765432",
-    customerAddress: "15 Pasteur, Bến Nghé, Quận 1, TP. Hồ Chí Minh",
-    customerNote: "Đóng gói bọc xốp cẩn thận tặng sinh nhật",
-    items: [
-      {
-        productId: SIGNATURE_PRODUCT.id,
-        name: SIGNATURE_PRODUCT.name,
-        quantity: 1,
-        price: SIGNATURE_PRODUCT.price,
-      },
-    ],
-    totalAmount: 289000,
-    paymentMethod: "cod",
-    paymentStatus: "unpaid",
-    status: "shipping",
-    affiliateCode: "HAANHBAR",
-    sellerCommission: 43350,
-    createdAt: "2026-09-29 09:15",
-  },
-  {
-    id: "MM-9823",
-    customerName: "Hoàng Minh Trí",
-    customerPhone: "0982334455",
-    customerAddress: "88 Bạch Đằng, Hải Châu, Đà Nẵng",
-    items: [
-      {
-        productId: SIGNATURE_PRODUCT.id,
-        name: SIGNATURE_PRODUCT.name,
-        quantity: 3,
-        price: SIGNATURE_PRODUCT.price,
-      },
-    ],
-    totalAmount: 867000,
-    paymentMethod: "vietqr",
-    paymentStatus: "paid",
-    status: "confirmed",
-    affiliateCode: "DUCMEW",
-    sellerCommission: 130050,
-    createdAt: "2026-09-30 20:05",
-  },
-  {
-    id: "MM-9824",
-    customerName: "Đỗ Phương Oanh",
-    customerPhone: "0977112233",
-    customerAddress: "28 Thảo Điền, TP. Thủ Đức, TP. Hồ Chí Minh",
-    items: [
-      {
-        productId: SIGNATURE_PRODUCT.id,
-        name: SIGNATURE_PRODUCT.name,
-        quantity: 1,
-        price: SIGNATURE_PRODUCT.price,
-      },
-    ],
-    totalAmount: 289000,
-    paymentMethod: "vietqr",
-    paymentStatus: "paid",
-    status: "pending",
-    affiliateCode: undefined,
-    sellerCommission: 0,
-    createdAt: "2026-10-01 16:45",
-  },
-];
+export const INITIAL_ORDERS: Order[] = [];
 
-export const INITIAL_PAYOUTS: PayoutRequest[] = [
-  {
-    id: "PAY-101",
-    sellerId: "seller-1",
-    sellerName: "Minh Đức",
-    amount: 1470000,
-    bankInfo: {
-      bankName: "MB Bank",
-      accountNumber: "0988776655",
-      accountHolder: "LE MINH DUC",
-    },
-    status: "completed",
-    requestedAt: "2026-09-20",
-    processedAt: "2026-09-21",
-  },
-  {
-    id: "PAY-102",
-    sellerId: "seller-2",
-    sellerName: "Hà Anh",
-    amount: 2000000,
-    bankInfo: {
-      bankName: "Techcombank",
-      accountNumber: "190334889910",
-      accountHolder: "NGUYEN HA ANH",
-    },
-    status: "pending",
-    requestedAt: "2026-09-30",
-  },
-];
+export const INITIAL_PAYOUTS: PayoutRequest[] = [];
 
 export const BLOG_POSTS: BlogPost[] = [
   {
@@ -303,18 +188,4 @@ export const PARTNERS_LIST: PartnerBar[] = [
   },
 ];
 
-export const INITIAL_B2B_INQUIRIES: B2BInquiry[] = [
-  {
-    id: "b2b-1",
-    businessName: "The Alchemist Bar Hanoi",
-    contactName: "Nguyễn Hải Đăng",
-    phone: "0904321987",
-    email: "dang.alchemist@gmail.com",
-    city: "Hà Nội",
-    businessType: "Cocktail Bar",
-    estimatedVolume: "30 - 50 chai / tháng",
-    notes: "Muốn đặt thử mẫu mẻ ủ sồi mới nhất cho menu mùa thu đông.",
-    status: "contacted",
-    createdAt: "2026-09-27",
-  },
-];
+export const INITIAL_B2B_INQUIRIES: B2BInquiry[] = [];
