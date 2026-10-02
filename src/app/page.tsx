@@ -460,7 +460,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-zinc-600 font-light leading-relaxed">
-                    {product.tastingNotes.nose}
+                    {t("taste_nose_desc")}
                   </p>
                 </motion.div>
 
@@ -482,7 +482,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-zinc-600 font-light leading-relaxed">
-                    {product.tastingNotes.palate}
+                    {t("taste_palate_desc")}
                   </p>
                 </motion.div>
 
@@ -504,7 +504,7 @@ export default function HomePage() {
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm text-zinc-600 font-light leading-relaxed">
-                    {product.tastingNotes.finish}
+                    {t("taste_finish_desc")}
                   </p>
                 </motion.div>
               </div>
