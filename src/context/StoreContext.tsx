@@ -116,16 +116,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setLanguageState("en");
     }
 
+    // Check URL query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceAgeGate = urlParams.get("age_gate") === "true";
+
     // Check age verification
-    const verified = localStorage.getItem("mewmao_age_verified");
-    if (!verified) {
+    if (forceAgeGate) {
       setIsAgeVerified(false);
     } else {
-      setIsAgeVerified(true);
+      const verified = localStorage.getItem("mewmao_age_verified");
+      if (!verified) {
+        setIsAgeVerified(false);
+      } else {
+        setIsAgeVerified(true);
+      }
     }
-
-    // Check URL query for affiliate referral code (?ref=CODE)
-    const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get("ref");
     if (ref) {
       const cleanRef = ref.trim().toUpperCase();

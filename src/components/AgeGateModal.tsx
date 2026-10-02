@@ -13,12 +13,16 @@ export default function AgeGateModal() {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fade-in">
       <div className="relative w-full max-w-md p-8 sm:p-10 bg-zinc-950 border border-white/08 rounded-3xl shadow-2xl text-center">
 
-        {/* Brand mark — Vandal style */}
-        <div className="w-14 h-14 mx-auto mb-6 flex items-center justify-center rounded-full bg-mewmao-orange shadow-amber-glow text-white">
-          <Wine className="w-7 h-7" />
+        {/* Mewmao Mascot Cat Holding Bottle */}
+        <div className="w-28 mx-auto mb-3 aspect-[472/685] flex items-center justify-center">
+          <img
+            src="/images/mewmao-cat.png?v=hd4"
+            alt="Mewmao Mascot"
+            className="w-full h-full object-contain select-none drop-shadow-[0_10px_25px_rgba(255,100,0,0.18)]"
+          />
         </div>
 
-        <div className="space-y-2 mb-8">
+        <div className="space-y-2 mb-6">
           <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-mewmao-orange font-bold block">
             {t("age_tag")}
           </span>
@@ -33,7 +37,7 @@ export default function AgeGateModal() {
         <div className="space-y-3">
           <button
             onClick={verifyAge}
-            className="btn-vandal w-full justify-center py-4 text-xs"
+            className="w-full py-3.5 px-6 rounded-2xl bg-mewmao-orange hover:bg-orange-600 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-98 flex items-center justify-center gap-2"
           >
             <span>{t("age_confirm")}</span>
             <span>→</span>
