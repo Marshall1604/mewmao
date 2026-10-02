@@ -126,6 +126,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("mewmao_age_verified");
     setIsAgeVerified(false);
 
+    // Load saved stock from localStorage
+    const savedStock = localStorage.getItem("mewmao_product_stock");
+    if (savedStock !== null) {
+      const parsedStock = parseInt(savedStock, 10);
+      if (!isNaN(parsedStock) && parsedStock >= 0) {
+        setProduct((prev) => ({ ...prev, stock: parsedStock }));
+      }
+    }
+
     // Check URL query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get("ref");
@@ -165,14 +174,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!isSupabaseConfigured || !supabase) return;
 
     try {
-      // 1. Fetch Sellers
+      // 1. Fetch Sellers & System Inventory
       const { data: dbSellers, error: sellersErr } = await supabase
         .from("sellers")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (!sellersErr && dbSellers) {
-        const mappedSellers: Seller[] = dbSellers.map((row: any) => ({
+        // Extract system inventory if present
+        const systemInventory = dbSellers.find(
+          (row: any) => row.id === "system-inventory" || row.status === "system"
+        );
+        if (systemInventory) {
+          const syncedStock = Number(systemInventory.bottles_sold_count);
+          if (!isNaN(syncedStock) && syncedStock >= 0) {
+            setProduct((prev) => ({
+              ...prev,
+              stock: syncedStock,
+              price: Number(systemInventory.balance) || prev.price,
+            }));
+            if (typeof window !== "undefined") {
+              localStorage.setItem("mewmao_product_stock", syncedStock.toString());
+            }
+          }
+        }
+
+        // Filter out system row so sellers only has real sellers
+        const humanSellers = dbSellers.filter(
+          (row: any) => row.id !== "system-inventory" && row.status !== "system"
+        );
+
+        const mappedSellers: Seller[] = humanSellers.map((row: any) => ({
           id: row.id,
           name: row.name,
           email: row.email || "",
@@ -369,10 +401,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setOrders((prev) => [newOrder, ...prev]);
 
     // Update product stock
+    const remainingStock = Math.max(0, product.stock - data.quantity);
     setProduct((prev) => ({
       ...prev,
-      stock: Math.max(0, prev.stock - data.quantity),
+      stock: remainingStock,
     }));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mewmao_product_stock", remainingStock.toString());
+    }
 
     // Credit seller if affiliate applied
     if (sellerToCredit) {
@@ -398,6 +434,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     // Sync to Supabase
     if (isSupabaseConfigured && supabase) {
+      // 1. Sync inventory decrement
+      supabase
+        .from("sellers")
+        .update({ bottles_sold_count: remainingStock })
+        .eq("id", "system-inventory")
+        .then(({ error }) => {
+          if (error) console.error("Error updating inventory in Supabase:", error);
+        });
+
+      // 2. Insert order
       supabase
         .from("orders")
         .insert({
@@ -645,11 +691,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateStock = (newStock: number) => {
+  const updateStock = async (newStock: number) => {
+    const validStock = Math.max(0, newStock);
     setProduct((prev) => ({
       ...prev,
-      stock: Math.max(0, newStock),
+      stock: validStock,
     }));
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mewmao_product_stock", validStock.toString());
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from("sellers")
+        .upsert({
+          id: "system-inventory",
+          name: "Mewmao Inventory",
+          affiliate_code: "SYS_STOCK",
+          pin: "000000",
+          bottles_sold_count: validStock,
+          balance: product.price,
+          status: "system",
+        });
+      if (error) {
+        console.error("Error saving inventory to Supabase:", error);
+      } else {
+        await refreshData();
+      }
+    }
   };
 
   const requestPayout = (sellerId: string, amount: number): boolean => {

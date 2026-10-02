@@ -190,6 +190,10 @@ export default function AdminPage() {
   // ── 7. INVENTORY QUICK ADJUST ──
   const [stockInput, setStockInput] = useState<number>(product.stock);
 
+  useEffect(() => {
+    setStockInput(product.stock);
+  }, [product.stock]);
+
   // Calculations
   const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
   const totalBottlesSold = orders.reduce(
@@ -1652,11 +1656,11 @@ export default function AdminPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        updateStock(stockInput);
-                        alert(`Đã cập nhật tồn kho thành ${stockInput} chai!`);
+                      onClick={async () => {
+                        await updateStock(stockInput);
+                        alert(`Đã lưu tồn kho mới thành công: ${stockInput} chai!`);
                       }}
-                      className="btn-mewmao-black py-2 px-4 text-xs font-bold"
+                      className="btn-mewmao-black py-2 px-4 text-xs font-bold cursor-pointer"
                     >
                       Lưu Tồn Kho Mới
                     </button>
@@ -1664,23 +1668,23 @@ export default function AdminPage() {
                     <div className="flex items-center gap-1.5 text-xs">
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           const updated = product.stock + 50;
                           setStockInput(updated);
-                          updateStock(updated);
+                          await updateStock(updated);
                         }}
-                        className="px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
+                        className="px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700 cursor-pointer"
                       >
                         +50 chai mẻ mới
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           const updated = product.stock + 100;
                           setStockInput(updated);
-                          updateStock(updated);
+                          await updateStock(updated);
                         }}
-                        className="px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700"
+                        className="px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700 cursor-pointer"
                       >
                         +100 chai mẻ mới
                       </button>
