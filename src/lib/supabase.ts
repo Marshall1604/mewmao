@@ -1,7 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://wjmtlewjkommnaylysiu.supabase.co";
+const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "sb_publishable_NbeYcoaaFx2YPXe_4yQyEQ_Bvc4E73i";
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
@@ -10,7 +14,8 @@ export const isSupabaseConfigured = Boolean(
     !supabaseUrl.includes("your-project-id")
 );
 
-// Client instance (returns null if unconfigured to prevent runtime crash)
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+// Client instance (fully typed as SupabaseClient)
+export const supabase: SupabaseClient = createClient(
+  supabaseUrl,
+  supabaseAnonKey
+);
