@@ -180,7 +180,7 @@ export default function AdminPage() {
     affiliateCode: "",
     pin: "123456",
     commissionRate: 15,
-    bankName: "MB Bank",
+    bankName: "",
     accountNumber: "",
     accountHolder: "",
   });
@@ -299,7 +299,7 @@ export default function AdminPage() {
       affiliateCode: "",
       pin: Math.floor(100000 + Math.random() * 900000).toString(),
       commissionRate: defaultRate,
-      bankName: "MB Bank",
+      bankName: "",
       accountNumber: "",
       accountHolder: "",
     });
@@ -1927,14 +1927,9 @@ export default function AdminPage() {
                 {/* Thiết lập hoa hồng 2 chiều: % ⇄ VNĐ */}
                 <div className="pt-2.5 border-t border-orange-200/60 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-[10px] uppercase text-amber-950 font-bold block">
-                        Mức Hoa Hồng Trích Cho Seller *
-                      </label>
-                      <span className="text-[10px] text-zinc-500 block">
-                        Nhập số % hoặc số tiền VNĐ — hệ thống tự động quy đổi đối chiếu
-                      </span>
-                    </div>
+                    <label className="text-[10px] uppercase text-amber-950 font-bold block">
+                      Mức Hoa Hồng Trích Cho Seller *
+                    </label>
                     <span className="text-[10px] font-mono text-zinc-600 bg-white border border-orange-200/80 px-2 py-0.5 rounded-md shrink-0 shadow-2xs">
                       Giá niêm yết: <strong className="text-zinc-950">{product.price.toLocaleString("vi-VN")}₫</strong>/chai
                     </span>
@@ -2005,26 +2000,9 @@ export default function AdminPage() {
 
               {/* Mã PIN Đăng Nhập Riêng Cho Seller (/seller) */}
               <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <label className="text-[10px] uppercase text-zinc-950 font-bold block">
-                      Mã PIN Đăng Nhập Của Seller (/seller) *
-                    </label>
-                    <span className="text-[10px] text-zinc-500 block">
-                      Seller nhập mã PIN này để vào xem số chai đã bán & hoa hồng nhận được
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const randomPin = Math.floor(100000 + Math.random() * 900000).toString();
-                      setSellerForm((prev) => ({ ...prev, pin: randomPin }));
-                    }}
-                    className="text-[10px] font-bold text-mewmao-orange hover:underline shrink-0"
-                  >
-                    Sinh PIN ngẫu nhiên
-                  </button>
-                </div>
+                <label className="text-[10px] uppercase text-zinc-950 font-bold block">
+                  Mã PIN Đăng Nhập Của Seller (/seller) *
+                </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
