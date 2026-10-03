@@ -114,21 +114,24 @@ export default function BlogPage() {
           </div>
         </div>
 
-        {/* Category Filter Tabs */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-4">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-full text-xs font-mono tracking-wider uppercase transition-all ${
-                selectedCategory === cat
-                  ? "bg-zinc-950 text-white font-bold shadow-[0_4px_14px_rgba(0,0,0,0.12)]"
-                  : "border border-black/[0.08] bg-white text-zinc-600 hover:text-zinc-950 hover:border-black/20 shadow-xs"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Category Filter Tabs - Tối ưu cho Mobile: Chỉ 1 hàng ngang duy nhất, không xuống hàng */}
+        <div className="w-full max-w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pt-4 pb-1">
+          <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-2 px-1 sm:px-0 w-max mx-auto min-w-full sm:min-w-0">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`shrink-0 whitespace-nowrap px-3.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-xs font-mono tracking-wider uppercase transition-all ${
+                  selectedCategory === cat
+                    ? "bg-zinc-950 text-white font-bold shadow-[0_4px_14px_rgba(0,0,0,0.12)]"
+                    : "border border-black/[0.08] bg-white text-zinc-600 hover:text-zinc-950 hover:border-black/20 shadow-xs"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
