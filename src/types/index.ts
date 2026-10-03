@@ -104,6 +104,15 @@ export interface BlogPost {
   readTime: string;
   date: string;
   tags: string[];
+  en?: {
+    title: string;
+    excerpt: string;
+    content: string[];
+    readTime: string;
+    date: string;
+    tags: string[];
+    category?: "Cocktail Lab" | "Artisanal Craft" | "Underground Culture" | "Tasting Diary";
+  };
 }
 
 export interface PartnerBar {

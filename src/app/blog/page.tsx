@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BLOG_POSTS } from "@/data/mockData";
+import { BLOG_POSTS_EN } from "@/data/blogTranslations";
 import { BlogPost } from "@/types";
 import { useStore } from "@/context/StoreContext";
 import { ArrowRight, ArrowLeft, X, ShoppingBag, Search, GlassWater } from "lucide-react";
@@ -53,11 +54,17 @@ export default function BlogPage() {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return matchesCategory;
 
+    const en = BLOG_POSTS_EN[post.id];
     const matchesSearch =
       post.title.toLowerCase().includes(query) ||
       post.excerpt.toLowerCase().includes(query) ||
       post.tags.some((t) => t.toLowerCase().includes(query)) ||
-      post.content.some((c) => c.toLowerCase().includes(query));
+      post.content.some((c) => c.toLowerCase().includes(query)) ||
+      (en &&
+        (en.title.toLowerCase().includes(query) ||
+          en.excerpt.toLowerCase().includes(query) ||
+          en.tags.some((t) => t.toLowerCase().includes(query)) ||
+          en.content.some((c) => c.toLowerCase().includes(query))));
 
     return matchesCategory && matchesSearch;
   });
@@ -148,7 +155,7 @@ export default function BlogPage() {
             <button
               type="button"
               onClick={() => {
-                setSelectedCategory("All");
+                setSelectedCategory(isEn ? "All" : "Tất Cả");
                 setSearchQuery("");
               }}
               className="text-xs font-mono text-mewmao-orange underline hover:text-amber-300 font-semibold"
@@ -158,217 +165,236 @@ export default function BlogPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredPosts.map((post) => (
-              <article
-                key={post.id}
-                onClick={() => setReadingPost(post)}
-                className="group cursor-pointer flex flex-col justify-between bg-[#141416] hover:bg-[#1a1a1d] p-6 rounded-[28px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.8)]"
-              >
-                <div className="space-y-4">
-                  {/* Cover Image */}
-                  <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-zinc-950">
-                    <img
-                      src={post.coverImage}
-                      alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-85 group-hover:opacity-100"
-                    />
-                    <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md text-[9px] font-mono tracking-wider uppercase text-mewmao-orange font-bold">
-                      {post.category}
+            {filteredPosts.map((post) => {
+              const en = BLOG_POSTS_EN[post.id];
+              const title = isEn && en ? en.title : post.title;
+              const excerpt = isEn && en ? en.excerpt : post.excerpt;
+              const date = isEn && en ? en.date : post.date;
+              const readTime = isEn && en ? en.readTime : post.readTime;
+              const tags = isEn && en ? en.tags : post.tags;
+
+              return (
+                <article
+                  key={post.id}
+                  onClick={() => setReadingPost(post)}
+                  className="group cursor-pointer flex flex-col justify-between bg-[#141416] hover:bg-[#1a1a1d] p-6 rounded-[28px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.8)]"
+                >
+                  <div className="space-y-4">
+                    {/* Cover Image */}
+                    <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-zinc-950">
+                      <img
+                        src={post.coverImage}
+                        alt={title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-85 group-hover:opacity-100"
+                      />
+                      <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md text-[9px] font-mono tracking-wider uppercase text-mewmao-orange font-bold">
+                        {post.category}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-white/35">
+                      <span>{date}</span>
+                      <span>•</span>
+                      <span>{readTime}</span>
+                    </div>
+
+                    <h3 className="font-serif text-xl sm:text-2xl font-black text-white group-hover:text-mewmao-orange transition-colors leading-snug">
+                      {title}
+                    </h3>
+
+                    <p className="text-xs text-white/45 font-light line-clamp-3 leading-relaxed">
+                      {excerpt}
+                    </p>
+                  </div>
+
+                  <div className="pt-4 mt-5 flex items-center justify-between">
+                    <span className="text-xs font-mono uppercase tracking-wider text-mewmao-orange group-hover:translate-x-1 transition-transform inline-flex items-center gap-1.5 font-bold">
+                      {isEn ? "Read Recipe" : "Xem Chi Tiết"} <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {tags.slice(0, 2).map((t) => (
+                        <span
+                          key={t}
+                          className="text-[9px] font-mono text-white/40 bg-white/[0.06] px-2.5 py-0.5 rounded-full"
+                        >
+                          #{t}
+                        </span>
+                      ))}
                     </div>
                   </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-                  <div className="flex items-center gap-2 text-[10px] font-mono text-white/35">
-                    <span>{post.date}</span>
+      {/* Reader: TOÀN MÀN HÌNH (Full-Screen, Không bị đóng khung, Đa ngôn ngữ EN/VI) */}
+      <AnimatePresence>
+        {readingPost && (() => {
+          const en = BLOG_POSTS_EN[readingPost.id];
+          const title = isEn && en ? en.title : readingPost.title;
+          const date = isEn && en ? en.date : readingPost.date;
+          const readTime = isEn && en ? en.readTime : readingPost.readTime;
+          const tags = isEn && en ? en.tags : readingPost.tags;
+          const content = isEn && en ? en.content : readingPost.content;
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              className="fixed inset-0 z-50 bg-[#0a0a0a] text-white overflow-y-auto"
+            >
+              {/* Top Sticky Full-Width Navigation Bar */}
+              <div className="sticky top-0 z-30 w-full bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/[0.04]">
+                <div className="max-w-4xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setReadingPost(null)}
+                    className="flex items-center gap-2.5 text-xs font-mono uppercase tracking-wider font-bold text-white/80 hover:text-mewmao-orange transition-colors group py-2"
+                  >
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-mewmao-orange" />
+                    <span>{isEn ? "Back to Articles" : "Quay Lại Bài Viết"}</span>
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-mono text-white/40 hidden sm:inline">
+                      {readTime}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReadingPost(null)}
+                      className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] text-white/70 hover:text-white flex items-center justify-center transition-colors"
+                      aria-label={isEn ? "Close" : "Đóng"}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Reading Canvas - Tràn toàn màn hình, thoáng đãng, sang trọng */}
+              <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-14 space-y-8">
+                {/* Header Info */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2.5 text-xs font-mono text-white/40">
+                    <span className="text-mewmao-orange font-bold uppercase tracking-wider">
+                      {readingPost.category}
+                    </span>
                     <span>•</span>
-                    <span>{post.readTime}</span>
+                    <span>{date}</span>
+                    <span>•</span>
+                    <span>{readTime}</span>
                   </div>
 
-                  <h3 className="font-serif text-xl sm:text-2xl font-black text-white group-hover:text-mewmao-orange transition-colors leading-snug">
-                    {post.title}
-                  </h3>
+                  <h1 className="font-serif text-3xl sm:text-5xl font-black text-white leading-tight">
+                    {title}
+                  </h1>
 
-                  <p className="text-xs text-white/45 font-light line-clamp-3 leading-relaxed">
-                    {post.excerpt}
-                  </p>
-                </div>
-
-                <div className="pt-4 mt-5 flex items-center justify-between">
-                  <span className="text-xs font-mono uppercase tracking-wider text-mewmao-orange group-hover:translate-x-1 transition-transform inline-flex items-center gap-1.5 font-bold">
-                    {isEn ? "Read Recipe" : "Xem Chi Tiết"} <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {post.tags.slice(0, 2).map((t) => (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {tags.map((t) => (
                       <span
                         key={t}
-                        className="text-[9px] font-mono text-white/40 bg-white/[0.06] px-2.5 py-0.5 rounded-full"
+                        className="text-[11px] font-mono text-mewmao-orange bg-mewmao-orange/15 px-3 py-1 rounded-full font-medium"
                       >
                         #{t}
                       </span>
                     ))}
                   </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
 
-      {/* Reader: TOÀN MÀN HÌNH (Full-Screen, Không bị đóng khung, Không viền trắng) */}
-      <AnimatePresence>
-        {readingPost && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-50 bg-[#0a0a0a] text-white overflow-y-auto"
-          >
-            {/* Top Sticky Full-Width Navigation Bar */}
-            <div className="sticky top-0 z-30 w-full bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/[0.04]">
-              <div className="max-w-4xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setReadingPost(null)}
-                  className="flex items-center gap-2.5 text-xs font-mono uppercase tracking-wider font-bold text-white/80 hover:text-mewmao-orange transition-colors group py-2"
-                >
-                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-mewmao-orange" />
-                  <span>{isEn ? "Back to Articles" : "Quay Lại Bài Viết"}</span>
-                </button>
+                {/* Cover Image - Full Width, High Res, Không viền */}
+                <div className="rounded-3xl overflow-hidden aspect-[16/10] sm:aspect-[16/9] bg-zinc-950 shadow-2xl">
+                  <img
+                    src={readingPost.coverImage}
+                    alt={title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-mono text-white/40 hidden sm:inline">
-                    {readingPost.readTime}
-                  </span>
+                {/* Formatted Content - Trình bày tinh tế, dễ đọc */}
+                <div className="space-y-4 pt-2">
+                  {content.map((p, idx) => {
+                    if (p.startsWith("### ")) {
+                      return (
+                        <div key={idx} className="pt-6 pb-1">
+                          <h3 className="font-serif text-2xl font-black text-amber-400 border-b border-white/[0.06] pb-2.5">
+                            {p.replace(/^###\s*/, "")}
+                          </h3>
+                        </div>
+                      );
+                    }
+                    if (p.startsWith("> ")) {
+                      return (
+                        <blockquote
+                          key={idx}
+                          className="border-l-4 border-mewmao-orange pl-5 sm:pl-6 py-4 italic text-amber-100/90 bg-white/[0.03] rounded-r-2xl text-base leading-relaxed"
+                        >
+                          {renderMarkdownText(p.replace(/^>\s*/, ""))}
+                        </blockquote>
+                      );
+                    }
+                    if (
+                      p.startsWith("* ") ||
+                      p.startsWith("• ") ||
+                      p.startsWith("- ")
+                    ) {
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-3.5 text-white/85 text-base leading-relaxed pl-1"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-mewmao-orange shrink-0 mt-2.5" />
+                          <span className="flex-1">
+                            {renderMarkdownText(p.replace(/^[*•-]\s*/, ""))}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <p
+                        key={idx}
+                        className="text-base text-white/65 font-light leading-relaxed"
+                      >
+                        {renderMarkdownText(p)}
+                      </p>
+                    );
+                  })}
+                </div>
+
+                {/* Call to Action: Order bottle - Không viền */}
+                <div className="mt-14 p-8 sm:p-10 rounded-3xl bg-[#141416] flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div className="space-y-1.5 text-center sm:text-left">
+                    <h4 className="font-serif text-xl sm:text-2xl font-black text-white">
+                      {isEn ? "Craft this cocktail at home?" : "Tự tay pha chế ly cocktail này?"}
+                    </h4>
+                    <p className="text-sm text-white/50 font-light">
+                      {isEn
+                        ? "Order 1 bottle of Mewmao Mơ Má Đào 500ml for 289,000₫."
+                        : "Đặt ngay 1 chai Rượu Mơ Má Đào Mewmao 500ml nguyên chất chỉ 289.000₫."}
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setReadingPost(null)}
-                    className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.15] text-white/70 hover:text-white flex items-center justify-center transition-colors"
-                    aria-label={isEn ? "Close" : "Đóng"}
+                    onClick={() => {
+                      setReadingPost(null);
+                      setIsQuickBuyOpen(true);
+                    }}
+                    className="btn-vandal shrink-0 py-3.5 px-8 text-xs shadow-lg hover:scale-105 transition-all"
                   >
-                    <X className="w-4 h-4" />
+                    <ShoppingBag className="w-4 h-4" />
+                    {isEn ? "Order Bottle" : "Mua Rượu Ngay"}
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Main Reading Canvas - Tràn toàn màn hình, thoáng đãng, sang trọng */}
-            <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-14 space-y-8">
-              {/* Header Info */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2.5 text-xs font-mono text-white/40">
-                  <span className="text-mewmao-orange font-bold uppercase tracking-wider">
-                    {readingPost.category}
-                  </span>
-                  <span>•</span>
-                  <span>{readingPost.date}</span>
-                  <span>•</span>
-                  <span>{readingPost.readTime}</span>
-                </div>
-
-                <h1 className="font-serif text-3xl sm:text-5xl font-black text-white leading-tight">
-                  {readingPost.title}
-                </h1>
-
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {readingPost.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="text-[11px] font-mono text-mewmao-orange bg-mewmao-orange/15 px-3 py-1 rounded-full font-medium"
-                    >
-                      #{t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Cover Image - Full Width, High Res, Không viền */}
-              <div className="rounded-3xl overflow-hidden aspect-[16/10] sm:aspect-[16/9] bg-zinc-950 shadow-2xl">
-                <img
-                  src={readingPost.coverImage}
-                  alt={readingPost.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Formatted Content - Trình bày tinh tế, dễ đọc */}
-              <div className="space-y-4 pt-2">
-                {readingPost.content.map((p, idx) => {
-                  if (p.startsWith("### ")) {
-                    return (
-                      <div key={idx} className="pt-6 pb-1">
-                        <h3 className="font-serif text-2xl font-black text-amber-400 border-b border-white/[0.06] pb-2.5">
-                          {p.replace(/^###\s*/, "")}
-                        </h3>
-                      </div>
-                    );
-                  }
-                  if (p.startsWith("> ")) {
-                    return (
-                      <blockquote
-                        key={idx}
-                        className="border-l-4 border-mewmao-orange pl-5 sm:pl-6 py-4 italic text-amber-100/90 bg-white/[0.03] rounded-r-2xl text-base leading-relaxed"
-                      >
-                        {renderMarkdownText(p.replace(/^>\s*/, ""))}
-                      </blockquote>
-                    );
-                  }
-                  if (
-                    p.startsWith("* ") ||
-                    p.startsWith("• ") ||
-                    p.startsWith("- ")
-                  ) {
-                    return (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-3.5 text-white/85 text-base leading-relaxed pl-1"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-mewmao-orange shrink-0 mt-2.5" />
-                        <span className="flex-1">
-                          {renderMarkdownText(p.replace(/^[*•-]\s*/, ""))}
-                        </span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <p
-                      key={idx}
-                      className="text-base text-white/65 font-light leading-relaxed"
-                    >
-                      {renderMarkdownText(p)}
-                    </p>
-                  );
-                })}
-              </div>
-
-              {/* Call to Action: Order bottle - Không viền */}
-              <div className="mt-14 p-8 sm:p-10 rounded-3xl bg-[#141416] flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div className="space-y-1.5 text-center sm:text-left">
-                  <h4 className="font-serif text-xl sm:text-2xl font-black text-white">
-                    {isEn ? "Craft this cocktail at home?" : "Tự tay pha chế ly cocktail này?"}
-                  </h4>
-                  <p className="text-sm text-white/50 font-light">
-                    {isEn
-                      ? "Order 1 bottle of Mewmao Mơ Má Đào 500ml for 289,000₫."
-                      : "Đặt ngay 1 chai Rượu Mơ Má Đào Mewmao 500ml nguyên chất chỉ 289.000₫."}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReadingPost(null);
-                    setIsQuickBuyOpen(true);
-                  }}
-                  className="btn-vandal shrink-0 py-3.5 px-8 text-xs shadow-lg hover:scale-105 transition-all"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  {isEn ? "Order Bottle" : "Mua Rượu Ngay"}
-                </button>
-              </div>
-            </main>
-          </motion.div>
-        )}
+              </main>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
 }
+
 
