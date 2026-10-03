@@ -50,12 +50,12 @@ export default function ContactQuickMenu() {
     {
       id: "sms",
       name: isEn ? "SMS Message" : "Tin Nhắn SMS",
-      handle: "0931.233.639",
+      handle: "0988.776.655",
       badge: isEn ? "24/7 Support" : "Hỗ trợ 24/7",
       iconBg: "bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white",
       href: isEn
-        ? "sms:0931233639?&body=Hi%20Mewmao,%20I%20would%20like%20to%20order%20Mewmao%20Plum%20Liqueur!"
-        : "sms:0931233639?&body=Ch%C3%A0o%20Mewmao,%20t%C3%B4i%20mu%E1%BB%91n%20t%C6%B0%20v%E1%BA%A5n%20%C4%91%E1%BA%B7t%20r%C6%B0%E1%BB%A3u%20m%C6%A1%20m%C3%A1%20%C4%91%C3%A0o!",
+        ? "sms:0988776655?&body=Hi%20Mewmao,%20I%20would%20like%20to%20order%20Mewmao%20Plum%20Liqueur!"
+        : "sms:0988776655?&body=Ch%C3%A0o%20Mewmao,%20t%C3%B4i%20mu%E1%BB%91n%20t%C6%B0%20v%E1%BA%A5n%20%C4%91%E1%BA%B7t%20r%C6%B0%E1%BB%A3u%20m%C6%A1%20m%C3%A1%20%C4%91%C3%A0o!",
       icon: MessageSquare,
     },
   ];
@@ -193,20 +193,20 @@ export default function ContactQuickMenu() {
 
               {/* Footer Notice */}
               <div className="pt-3 border-t border-black/[0.06] text-center">
-                <span className="text-[11px] font-mono text-zinc-500">
-                  {isEn ? "Mewmao Hotline: " : "Hotline Mewmao: "}
-                  <a
-                    href="tel:0931233639"
-                    className="text-zinc-950 font-bold hover:text-mewmao-orange transition-colors"
-                  >
-                    0931.233.639
-                  </a>
-                  <span className="text-zinc-400 mx-1.5">•</span>
+                <span className="text-[11px] font-mono text-zinc-500 font-normal">
+                  Mewmao Hotline: •{" "}
                   <a
                     href="tel:0988776655"
-                    className="text-zinc-500 hover:text-zinc-950 transition-colors"
+                    className="text-zinc-600 hover:text-zinc-950 font-normal transition-colors"
                   >
                     0988.776.655
+                  </a>{" "}
+                  •{" "}
+                  <a
+                    href="tel:0931233639"
+                    className="text-zinc-600 hover:text-zinc-950 font-normal transition-colors"
+                  >
+                    0931.233.639
                   </a>
                 </span>
               </div>
