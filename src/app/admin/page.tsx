@@ -1863,14 +1863,10 @@ export default function AdminPage() {
 
               {/* Đường Link Giới Thiệu (Cookie 30 Ngày) & % Hoa Hồng */}
               <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200/80 space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] uppercase text-amber-950 font-bold">
+                  <div>
+                    <label className="text-[10px] uppercase text-amber-950 font-bold block">
                       Đường Link Giới Thiệu (Cookie Nhận Diện 30 Ngày)
                     </label>
-                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                      ✓ Tự động ghi nhận
-                    </span>
                   </div>
 
                   <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-orange-200 text-xs font-mono">
@@ -1891,11 +1887,6 @@ export default function AdminPage() {
                       Copy Link
                     </button>
                   </div>
-
-                  <p className="text-[11px] text-zinc-600 leading-relaxed font-light">
-                    Khách hàng click vào đường link trên vào trang chủ Website, trình duyệt sẽ tự động nhớ <strong>Cookie trong 30 ngày</strong>. Khi khách hàng bấm mua hàng, hệ thống sẽ tự động nhận diện và tính doanh số cho Seller này mà khách không cần nhập mã.
-                  </p>
-                </div>
 
                 <div className="pt-2 border-t border-orange-200/60 flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
