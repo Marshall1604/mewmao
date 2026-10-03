@@ -34,6 +34,7 @@ export default function Navbar() {
     { label: t("nav_home"), href: "/" },
     { label: t("nav_about"), href: "/about" },
     { label: t("nav_blog"), href: "/blog" },
+    { label: t("nav_stickers") || "STICKERS", href: "/stickers" },
     { label: "SELLER", href: "/seller" },
   ];
 
