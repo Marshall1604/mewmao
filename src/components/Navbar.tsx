@@ -30,10 +30,10 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
 
-  // Tạm ẩn: Tạp Chí (/blog), Điểm Bán (/partners), Quản Trị (/dashboard)
   const navLinks = [
     { label: t("nav_home"), href: "/" },
     { label: t("nav_about"), href: "/about" },
+    { label: t("nav_blog"), href: "/blog" },
     { label: "SELLER", href: "/seller" },
   ];
 

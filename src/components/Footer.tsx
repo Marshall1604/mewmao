@@ -85,6 +85,7 @@ export default function Footer() {
             {[
               { label: `${t("nav_home")} — Mewmao 500ml`, href: "/" },
               { label: t("nav_about"), href: "/about" },
+              { label: t("nav_blog"), href: "/blog" },
               { label: "SELLER", href: "/seller" },
             ].map((l) => (
               <li key={l.href}>

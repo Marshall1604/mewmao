@@ -5,7 +5,7 @@ export const translations = {
     // Nav
     nav_home: "Home",
     nav_about: "Story",
-    nav_blog: "Journal",
+    nav_blog: "Articles",
     nav_partners: "Stockists",
     nav_dashboard: "Portal",
     nav_order: "Order Bottle",
@@ -154,7 +154,7 @@ export const translations = {
     // Nav
     nav_home: "Trang Chủ",
     nav_about: "Về Chúng Tôi",
-    nav_blog: "Tạp Chí",
+    nav_blog: "Bài Viết",
     nav_partners: "Điểm Bán",
     nav_dashboard: "Quản Trị",
     nav_order: "Đặt Rượu",
