@@ -305,14 +305,14 @@ export default function HomePage() {
               custom={1}
               className="p-6 rounded-3xl bg-zinc-50 border border-black/[0.06] space-y-2"
             >
-              <div className="flex items-baseline gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <span className="font-mono text-3xl sm:text-4xl font-black text-zinc-950">
                   {product.price.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
                 </span>
-                <span className="font-mono text-base text-zinc-400 line-through">
+                <span className="font-mono text-sm sm:text-base text-zinc-400 line-through">
                   {product.originalPrice.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
                 </span>
-                <span className="px-2.5 py-1 rounded-full bg-mewmao-orange text-white text-[11px] font-mono font-bold uppercase tracking-wider">
+                <span className="inline-flex items-center shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-mewmao-orange text-white text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider leading-none shadow-xs">
                   {isEn ? "−17% Savings" : "−17% Tiết Kiệm"}
                 </span>
               </div>
