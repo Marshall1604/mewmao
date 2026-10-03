@@ -12,7 +12,7 @@ function renderMarkdownText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={i} className="text-zinc-950 font-bold">
+        <strong key={i} className="text-white font-bold">
           {part.slice(2, -2)}
         </strong>
       );
@@ -63,14 +63,14 @@ export default function BlogPage() {
   });
 
   return (
-    <div className="py-16 sm:py-24 bg-[#fbfbfd] text-zinc-950 min-h-screen">
+    <div className="py-16 sm:py-24 bg-[#0a0a0a] text-white min-h-screen">
       {/* Header - Phẳng, không bị đóng khung */}
       <section className="max-w-4xl mx-auto px-5 sm:px-8 text-center space-y-4">
         <span className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.35em] text-mewmao-orange font-bold block">
           {isEn ? "COCKTAIL LAB & EDITORIAL" : "TẠP CHÍ & PHA CHẾ COCKTAIL"}
         </span>
 
-        <h1 className="font-serif text-5xl sm:text-7xl font-black text-zinc-950 leading-tight">
+        <h1 className="font-serif text-5xl sm:text-7xl font-black text-white leading-tight">
           {isEn ? (
             <>
               Stories by the <span className="text-amber-gradient">Glass.</span>
@@ -81,16 +81,16 @@ export default function BlogPage() {
             </>
           )}
         </h1>
-        <p className="text-sm sm:text-base text-zinc-500 max-w-xl mx-auto font-light leading-relaxed">
+        <p className="text-sm sm:text-base text-white/50 max-w-xl mx-auto font-light leading-relaxed">
           {isEn
             ? "Explore home mixology rituals, high mountain plum foraging memoirs, and the underground nocturnal ethos."
             : "Khám phá nghệ thuật pha chế mixology tại gia, 10 công thức cocktail rượu mơ má đào cực đỉnh và phong cách thưởng rượu underground."}
         </p>
 
-        {/* Search Bar - Tinh gọn, phẳng */}
+        {/* Search Bar - Tone tối tinh gọn, phẳng */}
         <div className="max-w-md mx-auto pt-3">
           <div className="relative">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-white/35 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
@@ -100,13 +100,13 @@ export default function BlogPage() {
                   ? "Search recipes, ingredients (soda, tea, yakult, beer)..."
                   : "Tìm công thức, nguyên liệu (soda, trà, yakult, dừa, bia)..."
               }
-              className="w-full pl-11 pr-10 py-3 rounded-full bg-white border border-black/[0.08] shadow-[0_2px_12px_rgba(0,0,0,0.03)] text-xs font-mono text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-mewmao-orange/70 focus:ring-4 focus:ring-orange-500/10 transition-all"
+              className="w-full pl-11 pr-10 py-3 rounded-full bg-white/05 border border-white/10 shadow-inner text-xs font-mono text-white placeholder:text-white/30 focus:outline-none focus:border-mewmao-orange/70 focus:bg-white/08 focus:ring-4 focus:ring-orange-500/10 transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-900"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -124,8 +124,8 @@ export default function BlogPage() {
                 onClick={() => setSelectedCategory(cat)}
                 className={`shrink-0 whitespace-nowrap px-3.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-xs font-mono tracking-wider uppercase transition-all ${
                   selectedCategory === cat
-                    ? "bg-zinc-950 text-white font-bold shadow-[0_4px_14px_rgba(0,0,0,0.12)]"
-                    : "border border-black/[0.08] bg-white text-zinc-600 hover:text-zinc-950 hover:border-black/20 shadow-xs"
+                    ? "bg-white text-zinc-950 font-bold shadow-lg"
+                    : "border border-white/10 bg-white/[0.03] text-white/50 hover:text-white hover:border-white/25 shadow-xs"
                 }`}
               >
                 {cat}
@@ -138,9 +138,9 @@ export default function BlogPage() {
       {/* Articles Grid */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 mt-14 sm:mt-18">
         {filteredPosts.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-zinc-200 bg-white rounded-3xl max-w-lg mx-auto space-y-3 shadow-xs">
-            <GlassWater className="w-10 h-10 text-zinc-300 mx-auto" />
-            <p className="text-sm font-mono text-zinc-500">
+          <div className="text-center py-20 border border-dashed border-white/10 bg-zinc-900/30 rounded-3xl max-w-lg mx-auto space-y-3 shadow-xs">
+            <GlassWater className="w-10 h-10 text-white/20 mx-auto" />
+            <p className="text-sm font-mono text-white/40">
               {isEn
                 ? "No recipes or stories found matching your search."
                 : "Không tìm thấy công thức hay bài viết phù hợp."}
@@ -151,7 +151,7 @@ export default function BlogPage() {
                 setSelectedCategory("All");
                 setSearchQuery("");
               }}
-              className="text-xs font-mono text-mewmao-orange underline hover:text-orange-700 font-semibold"
+              className="text-xs font-mono text-mewmao-orange underline hover:text-amber-300 font-semibold"
             >
               {isEn ? "Reset search filters" : "Xem tất cả bài viết"}
             </button>
@@ -162,45 +162,45 @@ export default function BlogPage() {
               <article
                 key={post.id}
                 onClick={() => setReadingPost(post)}
-                className="group cursor-pointer flex flex-col justify-between bg-white border border-black/[0.06] hover:border-black/15 p-6 rounded-[28px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.08)]"
+                className="group cursor-pointer flex flex-col justify-between bg-zinc-900/40 hover:bg-zinc-900/80 border border-white/06 hover:border-white/15 p-6 rounded-[28px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_45px_-10px_rgba(0,0,0,0.6)]"
               >
                 <div className="space-y-4">
                   {/* Cover Image */}
-                  <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-zinc-100">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-zinc-950">
                     <img
                       src={post.coverImage}
                       alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-85 group-hover:opacity-100"
                     />
-                    <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-md text-[9px] font-mono tracking-wider uppercase text-zinc-950 border border-black/5 font-bold shadow-xs">
+                    <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-zinc-950/85 backdrop-blur-md text-[9px] font-mono tracking-wider uppercase text-mewmao-orange border border-mewmao-orange/30 font-bold shadow-xs">
                       {post.category}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-400">
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-white/35">
                     <span>{post.date}</span>
                     <span>•</span>
                     <span>{post.readTime}</span>
                   </div>
 
-                  <h3 className="font-serif text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-mewmao-orange transition-colors leading-snug">
+                  <h3 className="font-serif text-xl sm:text-2xl font-black text-white group-hover:text-mewmao-orange transition-colors leading-snug">
                     {post.title}
                   </h3>
 
-                  <p className="text-xs text-zinc-500 font-light line-clamp-3 leading-relaxed">
+                  <p className="text-xs text-white/45 font-light line-clamp-3 leading-relaxed">
                     {post.excerpt}
                   </p>
                 </div>
 
-                <div className="pt-4 mt-5 flex items-center justify-between border-t border-black/[0.05]">
-                  <span className="text-xs font-mono uppercase tracking-wider text-zinc-950 group-hover:text-mewmao-orange group-hover:translate-x-1 transition-transform inline-flex items-center gap-1.5 font-bold">
+                <div className="pt-4 mt-5 flex items-center justify-between border-t border-white/06">
+                  <span className="text-xs font-mono uppercase tracking-wider text-mewmao-orange group-hover:translate-x-1 transition-transform inline-flex items-center gap-1.5 font-bold">
                     {isEn ? "Read Recipe" : "Xem Chi Tiết"} <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                   <div className="flex items-center gap-1.5">
                     {post.tags.slice(0, 2).map((t) => (
                       <span
                         key={t}
-                        className="text-[9px] font-mono text-zinc-500 bg-zinc-100 px-2.5 py-0.5 rounded-full"
+                        className="text-[9px] font-mono text-white/35 bg-white/05 px-2.5 py-0.5 rounded-full border border-white/05"
                       >
                         #{t}
                       </span>
@@ -213,7 +213,7 @@ export default function BlogPage() {
         )}
       </section>
 
-      {/* Reader: TOÀN MÀN HÌNH (Full-Screen, Không bị đóng khung, Không chiếm mất diện tích) */}
+      {/* Reader: TOÀN MÀN HÌNH (Full-Screen, Không bị đóng khung, Tone Đen Sang Trọng) */}
       <AnimatePresence>
         {readingPost && (
           <motion.div
@@ -221,28 +221,28 @@ export default function BlogPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22 }}
-            className="fixed inset-0 z-50 bg-[#fbfbfd] text-zinc-950 overflow-y-auto"
+            className="fixed inset-0 z-50 bg-[#0a0a0a] text-white overflow-y-auto"
           >
             {/* Top Sticky Full-Width Navigation Bar */}
-            <div className="sticky top-0 z-30 w-full bg-white/90 backdrop-blur-xl border-b border-black/[0.06]">
+            <div className="sticky top-0 z-30 w-full bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/08">
               <div className="max-w-4xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setReadingPost(null)}
-                  className="flex items-center gap-2.5 text-xs font-mono uppercase tracking-wider font-bold text-zinc-700 hover:text-mewmao-orange transition-colors group py-2"
+                  className="flex items-center gap-2.5 text-xs font-mono uppercase tracking-wider font-bold text-white/80 hover:text-mewmao-orange transition-colors group py-2"
                 >
                   <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-mewmao-orange" />
                   <span>{isEn ? "Back to Articles" : "Quay Lại Bài Viết"}</span>
                 </button>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-mono text-zinc-400 hidden sm:inline">
+                  <span className="text-[11px] font-mono text-white/40 hidden sm:inline">
                     {readingPost.readTime}
                   </span>
                   <button
                     type="button"
                     onClick={() => setReadingPost(null)}
-                    className="w-9 h-9 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-950 flex items-center justify-center transition-colors"
+                    className="w-9 h-9 rounded-full bg-white/08 hover:bg-white/15 text-white/70 hover:text-white flex items-center justify-center transition-colors"
                     aria-label={isEn ? "Close" : "Đóng"}
                   >
                     <X className="w-4 h-4" />
@@ -255,7 +255,7 @@ export default function BlogPage() {
             <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-14 space-y-8">
               {/* Header Info */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2.5 text-xs font-mono text-zinc-400">
+                <div className="flex items-center gap-2.5 text-xs font-mono text-white/40">
                   <span className="text-mewmao-orange font-bold uppercase tracking-wider">
                     {readingPost.category}
                   </span>
@@ -265,7 +265,7 @@ export default function BlogPage() {
                   <span>{readingPost.readTime}</span>
                 </div>
 
-                <h1 className="font-serif text-3xl sm:text-5xl font-black text-zinc-950 leading-tight">
+                <h1 className="font-serif text-3xl sm:text-5xl font-black text-white leading-tight">
                   {readingPost.title}
                 </h1>
 
@@ -273,7 +273,7 @@ export default function BlogPage() {
                   {readingPost.tags.map((t) => (
                     <span
                       key={t}
-                      className="text-[11px] font-mono text-zinc-600 bg-zinc-100 px-3 py-1 rounded-full font-medium"
+                      className="text-[11px] font-mono text-mewmao-orange/90 bg-mewmao-orange/10 border border-mewmao-orange/20 px-3 py-1 rounded-full font-medium"
                     >
                       #{t}
                     </span>
@@ -282,7 +282,7 @@ export default function BlogPage() {
               </div>
 
               {/* Cover Image - Full Width, High Res */}
-              <div className="rounded-3xl overflow-hidden aspect-[16/10] sm:aspect-[16/9] bg-zinc-100 border border-black/[0.05] shadow-xs">
+              <div className="rounded-3xl overflow-hidden aspect-[16/10] sm:aspect-[16/9] bg-zinc-900 border border-white/08 shadow-2xl">
                 <img
                   src={readingPost.coverImage}
                   alt={readingPost.title}
@@ -296,7 +296,7 @@ export default function BlogPage() {
                   if (p.startsWith("### ")) {
                     return (
                       <div key={idx} className="pt-6 pb-1">
-                        <h3 className="font-serif text-2xl font-black text-zinc-950 border-b border-black/[0.06] pb-2.5">
+                        <h3 className="font-serif text-2xl font-black text-amber-400 border-b border-white/10 pb-2.5">
                           {p.replace(/^###\s*/, "")}
                         </h3>
                       </div>
@@ -306,7 +306,7 @@ export default function BlogPage() {
                     return (
                       <blockquote
                         key={idx}
-                        className="border-l-4 border-mewmao-orange pl-5 sm:pl-6 py-4 italic text-zinc-700 bg-orange-50/50 rounded-r-2xl text-base leading-relaxed"
+                        className="border-l-4 border-mewmao-orange pl-5 sm:pl-6 py-4 italic text-amber-100/90 bg-white/[0.03] rounded-r-2xl text-base leading-relaxed"
                       >
                         {renderMarkdownText(p.replace(/^>\s*/, ""))}
                       </blockquote>
@@ -320,7 +320,7 @@ export default function BlogPage() {
                     return (
                       <div
                         key={idx}
-                        className="flex items-start gap-3.5 text-zinc-700 text-base leading-relaxed pl-1"
+                        className="flex items-start gap-3.5 text-white/85 text-base leading-relaxed pl-1"
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-mewmao-orange shrink-0 mt-2.5" />
                         <span className="flex-1">
@@ -332,7 +332,7 @@ export default function BlogPage() {
                   return (
                     <p
                       key={idx}
-                      className="text-base text-zinc-600 font-light leading-relaxed"
+                      className="text-base text-white/65 font-light leading-relaxed"
                     >
                       {renderMarkdownText(p)}
                     </p>
@@ -341,12 +341,12 @@ export default function BlogPage() {
               </div>
 
               {/* Call to Action: Order bottle */}
-              <div className="mt-14 p-8 sm:p-10 rounded-3xl bg-zinc-50 border border-zinc-200/80 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="mt-14 p-8 sm:p-10 rounded-3xl bg-zinc-900 border border-white/08 flex flex-col sm:flex-row items-center justify-between gap-6">
                 <div className="space-y-1.5 text-center sm:text-left">
-                  <h4 className="font-serif text-xl sm:text-2xl font-black text-zinc-950">
+                  <h4 className="font-serif text-xl sm:text-2xl font-black text-white">
                     {isEn ? "Craft this cocktail at home?" : "Tự tay pha chế ly cocktail này?"}
                   </h4>
-                  <p className="text-sm text-zinc-500 font-light">
+                  <p className="text-sm text-white/50 font-light">
                     {isEn
                       ? "Order 1 bottle of Mewmao Mơ Má Đào 500ml for 289,000₫."
                       : "Đặt ngay 1 chai Rượu Mơ Má Đào Mewmao 500ml nguyên chất chỉ 289.000₫."}
@@ -358,7 +358,7 @@ export default function BlogPage() {
                     setReadingPost(null);
                     setIsQuickBuyOpen(true);
                   }}
-                  className="btn-mewmao-black shrink-0 py-3.5 px-8 text-xs shadow-md hover:scale-105 transition-all"
+                  className="btn-vandal shrink-0 py-3.5 px-8 text-xs shadow-lg hover:scale-105 transition-all"
                 >
                   <ShoppingBag className="w-4 h-4" />
                   {isEn ? "Order Bottle" : "Mua Rượu Ngay"}
