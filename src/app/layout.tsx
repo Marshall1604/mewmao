@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Cormorant_Garamond } from "next/font/google";
+import { Plus_Jakarta_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/context/StoreContext";
 import Navbar from "@/components/Navbar";
@@ -9,17 +9,19 @@ import AgeGateModal from "@/components/AgeGateModal";
 import ContactQuickMenu from "@/components/ContactQuickMenu";
 
 const sans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
   weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-sans",
   display: "swap",
+  preload: true,
 });
 
-const serif = Cormorant_Garamond({
+const serif = Playfair_Display({
   subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-serif",
   display: "swap",
+  preload: true,
 });
 
 export const metadata: Metadata = {

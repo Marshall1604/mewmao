@@ -91,7 +91,7 @@ export default function AboutPage() {
           <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-mewmao-orange font-bold block">
             {isEn ? "THE HARVEST & CELLAR ARCHITECTURE" : "QUY TRÌNH KỲ CÔNG"}
           </span>
-          <h2 className="font-serif text-4xl sm:text-6xl font-black text-zinc-950 leading-none">
+          <h2 className="font-serif text-4xl sm:text-6xl font-black text-zinc-950 leading-tight">
             {isEn ? "Four Stages of Slow Craft" : "4 Bước Tạo Nên Tuyệt Phẩm"}
           </h2>
         </div>
@@ -116,7 +116,7 @@ export default function AboutPage() {
         <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-mewmao-orange font-bold block">
           {isEn ? "CONNECT WITH THE ATELIER" : "KẾT NỐI VỚI CỘNG ĐỒNG MEWMAO"}
         </span>
-        <h2 className="font-serif text-3xl sm:text-5xl font-black text-zinc-950 leading-none">
+        <h2 className="font-serif text-3xl sm:text-5xl font-black text-zinc-950 leading-tight">
           {isEn ? "Follow Our Journey" : "Theo Dõi Hành Trình"}
         </h2>
         <div className="flex flex-wrap items-center justify-center gap-4 pt-2">

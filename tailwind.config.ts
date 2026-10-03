@@ -35,9 +35,9 @@ const config: Config = {
         }
       },
       fontFamily: {
-        serif: ["var(--font-serif)", "serif"],
-        display: ["var(--font-serif)", "serif"],
-        sans: ["var(--font-sans)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        serif: ["var(--font-serif)", "Playfair Display", "Georgia", "serif"],
+        display: ["var(--font-serif)", "Playfair Display", "Georgia", "serif"],
+        sans: ["var(--font-sans)", "Plus Jakarta Sans", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
         mono: ['"SF Mono"', "Menlo", "Monaco", "Consolas", "monospace"],
       },
       boxShadow: {

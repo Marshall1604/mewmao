@@ -78,7 +78,7 @@ export default function HomePage() {
               viewport={{ once: true }}
               variants={fadeInUp}
               custom={0}
-              className="font-serif text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight text-zinc-950 leading-[0.95]"
+              className="font-serif text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight text-zinc-950 leading-[1.05]"
             >
               Mewmao <br />
               <span className="italic font-normal text-amber-gradient font-serif">Distillery.</span>
@@ -219,7 +219,7 @@ export default function HomePage() {
             viewport={{ once: true, margin: "-40px" }}
             variants={fadeInUp}
             custom={1}
-            className="font-serif text-4xl sm:text-6xl font-black tracking-tight text-zinc-950 leading-none"
+            className="font-serif text-4xl sm:text-6xl font-black tracking-tight text-zinc-950 leading-tight"
           >
             {isEn ? "Artisanal Plum Spirit" : "Rượu Mơ Má Đào Mewmao"}
           </motion.h2>
@@ -652,7 +652,7 @@ export default function HomePage() {
             <span className="text-[10px] font-mono uppercase tracking-[0.35em] text-mewmao-orange font-bold block">
               {t("closing_tag")}
             </span>
-            <h3 className="font-serif text-4xl sm:text-6xl font-black text-zinc-950 leading-none">
+            <h3 className="font-serif text-4xl sm:text-6xl font-black text-zinc-950 leading-tight">
               {t("closing_title")}
             </h3>
             <p className="text-xs sm:text-sm text-zinc-500 max-w-lg mx-auto font-light leading-relaxed pt-1">
