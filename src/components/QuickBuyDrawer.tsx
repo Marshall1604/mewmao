@@ -250,10 +250,10 @@ export default function QuickBuyDrawer() {
                   </div>
                 </div>
 
-                {/* ── MÃ AFFILIATE GIỚI THIỆU (NẾU CÓ) ── */}
+                {/* ── MÃ (NẾU CÓ) ── */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 font-bold block">
-                    {isEn ? "Ambassador / Referral Code (Optional)" : "Mã Đại Sứ Giới Thiệu (Nếu có)"}
+                    {isEn ? "Code (Optional)" : "Mã (Nếu có)"}
                   </label>
 
                   <div className="relative">

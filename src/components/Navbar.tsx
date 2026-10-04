@@ -11,7 +11,6 @@ import {
   X,
   UserCheck,
   ChevronDown,
-  Sparkles,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -22,7 +21,6 @@ export default function Navbar() {
     sellers,
     currentSeller,
     setIsQuickBuyOpen,
-    activeRefCode,
     language,
     setLanguage,
     t,
@@ -44,17 +42,6 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 w-full apple-glass transition-colors">
-      {/* Affiliate banner */}
-      {activeRefCode && (
-        <div className="bg-zinc-950 text-white py-1 px-4 text-center text-xs font-medium flex items-center justify-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-mewmao-orange animate-pulse" />
-          <span>
-            {t("nav_ref_banner")}{" "}
-            <strong className="tracking-wider font-mono text-mewmao-orange">{activeRefCode}</strong>
-          </span>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
