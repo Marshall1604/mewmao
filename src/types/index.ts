@@ -50,8 +50,26 @@ export interface Order {
   paymentStatus: "paid" | "unpaid";
   status: OrderStatus;
   affiliateCode?: string;
+  voucherCode?: string;
   sellerCommission: number;
   createdAt: string;
+}
+
+export type DiscountType = "percent" | "fixed";
+
+export interface Voucher {
+  id: string;
+  code: string; // VD: MEWMAO20K, TET2026, BANMOI
+  name: string; // Tên chương trình, VD: Ưu đãi bạn mới
+  discountType: DiscountType; // "percent" (%) hoặc "fixed" (VNĐ)
+  discountValue: number; // VD: 10 (%) hoặc 30000 (VNĐ)
+  startDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD (để trống = không giới hạn)
+  minOrderValue?: number; // Đơn tối thiểu để áp dụng (VD: 0)
+  usageLimit?: number; // Số lượt dùng tối đa (undefined = không giới hạn)
+  usedCount: number; // Số lượt đã sử dụng
+  status: "active" | "inactive";
+  createdAt?: string;
 }
 
 export interface Seller {

@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   ShieldCheck,
   ArrowRight,
+  Tag,
 } from "lucide-react";
+import { Voucher } from "@/types";
 
 export default function QuickBuyDrawer() {
   const {
@@ -22,6 +24,7 @@ export default function QuickBuyDrawer() {
     setActiveRefCode,
     sellers,
     placeOrder,
+    validateVoucher,
     t,
     language,
   } = useStore();
@@ -33,6 +36,13 @@ export default function QuickBuyDrawer() {
   const [note, setNote] = useState("");
   const [manualRefCode, setManualRefCode] = useState(activeRefCode || "");
   const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null);
+
+  // Voucher states
+  const [voucherInput, setVoucherInput] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherSuccess, setVoucherSuccess] = useState<string | null>(null);
 
   // Đồng bộ manualRefCode khi activeRefCode thay đổi (từ cookie hoặc URL)
   useEffect(() => {
@@ -49,10 +59,53 @@ export default function QuickBuyDrawer() {
       )
     : false;
 
-  if (!isQuickBuyOpen) return null;
-
   const subtotal = product.price * cartQuantity;
-  const totalAmount = subtotal; // Bỏ giảm giá: mua đúng giá niêm yết 289.000₫/chai
+  const totalAmount = Math.max(0, subtotal - voucherDiscount);
+
+  // Tự động tính toán lại mức giảm voucher khi số lượng chai / subtotal thay đổi
+  useEffect(() => {
+    if (appliedVoucher) {
+      const res = validateVoucher(appliedVoucher.code, subtotal);
+      if (res.valid) {
+        setVoucherDiscount(res.discountAmount);
+        setVoucherSuccess(res.message);
+      } else {
+        setAppliedVoucher(null);
+        setVoucherDiscount(0);
+        setVoucherError(res.message);
+        setVoucherSuccess(null);
+      }
+    }
+  }, [subtotal]);
+
+  const handleApplyVoucher = () => {
+    if (!voucherInput.trim()) {
+      setVoucherError(isEn ? "Please enter a voucher code." : "Vui lòng nhập mã voucher.");
+      return;
+    }
+    const res = validateVoucher(voucherInput, subtotal);
+    if (res.valid && res.voucher) {
+      setAppliedVoucher(res.voucher);
+      setVoucherDiscount(res.discountAmount);
+      setVoucherSuccess(res.message);
+      setVoucherError(null);
+    } else {
+      setAppliedVoucher(null);
+      setVoucherDiscount(0);
+      setVoucherError(res.message);
+      setVoucherSuccess(null);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherDiscount(0);
+    setVoucherInput("");
+    setVoucherError(null);
+    setVoucherSuccess(null);
+  };
+
+  if (!isQuickBuyOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +134,8 @@ export default function QuickBuyDrawer() {
       quantity: cartQuantity,
       paymentMethod: "cod",
       affiliateCode: finalRefCode || undefined,
+      voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+      discountAmount: appliedVoucher ? voucherDiscount : 0,
     });
     setConfirmedOrder(order);
   };
@@ -170,6 +225,14 @@ export default function QuickBuyDrawer() {
                     <span className="text-zinc-500">{isEn ? "Ambassador Code:" : "Mã giới thiệu:"}</span>
                     <strong className="text-mewmao-orange font-mono font-bold">
                       {confirmedOrder.affiliateCode}
+                    </strong>
+                  </div>
+                )}
+                {confirmedOrder.voucherCode && (confirmedOrder.discountAmount || 0) > 0 && (
+                  <div className="flex justify-between pb-2 border-b border-zinc-100 text-emerald-600 font-medium">
+                    <span>{isEn ? "Voucher Applied:" : "Mã Voucher đã giảm:"}</span>
+                    <strong className="font-mono">
+                      {confirmedOrder.voucherCode} (-{(confirmedOrder.discountAmount || 0).toLocaleString(isEn ? "en-US" : "vi-VN")}₫)
                     </strong>
                   </div>
                 )}
@@ -325,17 +388,127 @@ export default function QuickBuyDrawer() {
                     />
                   ))}
                 </div>
+
+                {/* ── MÃ VOUCHER (GIẢM GIÁ TRỰC TIẾP) ── */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 font-bold block">
+                      {isEn ? "Voucher Code" : "Mã Voucher"}
+                    </label>
+                    {appliedVoucher && (
+                      <span className="text-[10px] text-emerald-600 font-bold font-mono">
+                        ✓ -{voucherDiscount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Tag className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                      <input
+                        type="text"
+                        value={voucherInput}
+                        disabled={!!appliedVoucher}
+                        onChange={(e) => {
+                          setVoucherInput(e.target.value.toUpperCase());
+                          if (voucherError) setVoucherError(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleApplyVoucher();
+                          }
+                        }}
+                        placeholder={
+                          isEn
+                            ? "ENTER VOUCHER CODE (E.G. MEWMAO20K)"
+                            : "NHẬP MÃ VOUCHER (VD: MEWMAO20K)"
+                        }
+                        className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border bg-white uppercase font-mono tracking-wider transition-all focus:outline-none ${
+                          appliedVoucher
+                            ? "border-emerald-500 bg-emerald-50/30 text-emerald-800 font-bold"
+                            : voucherError
+                            ? "border-rose-300 focus:border-rose-500 text-zinc-800"
+                            : "border-zinc-200 focus:border-zinc-950 text-zinc-800 placeholder:text-zinc-300"
+                        }`}
+                      />
+                    </div>
+
+                    {appliedVoucher ? (
+                      <button
+                        type="button"
+                        onClick={handleRemoveVoucher}
+                        className="px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-bold transition-colors shrink-0"
+                      >
+                        {isEn ? "Remove" : "Bỏ mã"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleApplyVoucher}
+                        className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-bold transition-all shrink-0 active:scale-95"
+                      >
+                        {isEn ? "Apply" : "Áp Dụng"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Thông báo kết quả voucher */}
+                  {voucherSuccess && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-[11px] text-emerald-800 flex items-center justify-between animate-fade-in font-medium">
+                      <span>{voucherSuccess}</span>
+                      <span className="font-bold font-mono text-emerald-700">
+                        -{voucherDiscount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
+                      </span>
+                    </div>
+                  )}
+
+                  {voucherError && (
+                    <p className="text-[11px] text-rose-500 font-medium animate-fade-in pl-1">
+                      {voucherError}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Total + Submit */}
               <div className="pt-5 border-t border-zinc-200/70 space-y-3">
+                {/* Breakdown nếu có voucher */}
+                {appliedVoucher && (
+                  <div className="space-y-1.5 pb-2 text-xs border-b border-zinc-200/50">
+                    <div className="flex items-center justify-between text-zinc-500">
+                      <span>{isEn ? "Subtotal:" : "Tạm tính:"}</span>
+                      <span className="font-mono text-zinc-800">
+                        {subtotal.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-emerald-600 font-medium">
+                      <span>
+                        {isEn
+                          ? `Voucher Discount (${appliedVoucher.code}):`
+                          : `Giảm giá Voucher (${appliedVoucher.code}):`}
+                      </span>
+                      <span className="font-mono font-bold">
+                        -{voucherDiscount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500 font-mono uppercase tracking-wider font-semibold">
                     {isEn ? "Total Amount:" : "Tổng Thanh Toán:"}
                   </span>
-                  <span className="font-serif text-3xl font-black text-zinc-950">
-                    {totalAmount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
-                  </span>
+                  <div className="text-right">
+                    {appliedVoucher && (
+                      <span className="text-xs text-zinc-400 line-through font-mono block">
+                        {subtotal.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
+                      </span>
+                    )}
+                    <span className="font-serif text-3xl font-black text-zinc-950">
+                      {totalAmount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="submit"

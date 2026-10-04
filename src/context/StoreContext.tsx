@@ -9,6 +9,7 @@ import {
   B2BInquiry,
   UserRole,
   OrderStatus,
+  Voucher,
 } from "@/types";
 import {
   SIGNATURE_PRODUCT,
@@ -41,6 +42,7 @@ interface StoreContextType {
   sellers: Seller[];
   payouts: PayoutRequest[];
   b2bInquiries: B2BInquiry[];
+  vouchers: Voucher[];
   placeOrder: (data: {
     customerName: string;
     customerPhone: string;
@@ -49,7 +51,21 @@ interface StoreContextType {
     quantity: number;
     paymentMethod: "vietqr" | "cod";
     affiliateCode?: string;
+    voucherCode?: string;
+    discountAmount?: number;
   }) => Order;
+  validateVoucher: (
+    code: string,
+    currentSubtotal: number
+  ) => {
+    valid: boolean;
+    discountAmount: number;
+    message: string;
+    voucher?: Voucher;
+  };
+  addVoucher: (data: Omit<Voucher, "id" | "usedCount" | "createdAt">) => Voucher;
+  updateVoucher: (id: string, updates: Partial<Voucher>) => void;
+  deleteVoucher: (id: string) => Promise<boolean>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   deleteOrder: (orderId: string) => Promise<boolean>;
   refreshData: () => Promise<void>;
@@ -102,6 +118,50 @@ function getAffiliateCookie(): string | null {
   }
 }
 
+const DEFAULT_VOUCHERS: Voucher[] = [
+  {
+    id: "voucher-1",
+    code: "MEWMAO20K",
+    name: "Ưu Đãi Trải Nghiệm Mơ Tây Bắc",
+    discountType: "fixed",
+    discountValue: 20000,
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
+    minOrderValue: 0,
+    usageLimit: 500,
+    usedCount: 14,
+    status: "active",
+    createdAt: "2026-01-01",
+  },
+  {
+    id: "voucher-2",
+    code: "CHAOMUNG10",
+    name: "Giảm 10% Cho Khách Hàng Thân Thiết",
+    discountType: "percent",
+    discountValue: 10,
+    startDate: "2026-01-01",
+    minOrderValue: 0,
+    usageLimit: 200,
+    usedCount: 38,
+    status: "active",
+    createdAt: "2026-01-01",
+  },
+  {
+    id: "voucher-3",
+    code: "TET2026",
+    name: "Voucher Lộc Xuân Rượu Mơ",
+    discountType: "fixed",
+    discountValue: 30000,
+    startDate: "2026-01-01",
+    endDate: "2026-03-31",
+    minOrderValue: 0,
+    usageLimit: 100,
+    usedCount: 8,
+    status: "active",
+    createdAt: "2026-01-01",
+  },
+];
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("vi"); // Mặc định tiếng Việt khi vào website
   const [product, setProduct] = useState<Product>(SIGNATURE_PRODUCT);
@@ -130,6 +190,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [payouts, setPayouts] = useState<PayoutRequest[]>(INITIAL_PAYOUTS);
   const [b2bInquiries, setB2BInquiries] = useState<B2BInquiry[]>(INITIAL_B2B_INQUIRIES);
+  const [vouchers, setVouchers] = useState<Voucher[]>(DEFAULT_VOUCHERS);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
 
   // Initialize from LocalStorage and Cookie to handle URL ref code
@@ -169,6 +230,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (e) {
         console.warn("Error parsing saved orders from localStorage:", e);
+      }
+    }
+
+    const savedVouchers = localStorage.getItem("mewmao_vouchers");
+    if (savedVouchers) {
+      try {
+        const parsed = JSON.parse(savedVouchers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setVouchers(parsed);
+        }
+      } catch (e) {
+        console.warn("Error parsing saved vouchers from localStorage:", e);
       }
     }
 
@@ -402,6 +475,128 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ── VOUCHER HELPERS & METHODS ──
+  const validateVoucher = (
+    code: string,
+    currentSubtotal: number
+  ): {
+    valid: boolean;
+    discountAmount: number;
+    message: string;
+    voucher?: Voucher;
+  } => {
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) {
+      return { valid: false, discountAmount: 0, message: "Vui lòng nhập mã voucher." };
+    }
+
+    const v = vouchers.find((item) => item.code.trim().toUpperCase() === cleanCode);
+    if (!v) {
+      return { valid: false, discountAmount: 0, message: "Mã voucher không tồn tại." };
+    }
+
+    if (v.status !== "active") {
+      return { valid: false, discountAmount: 0, message: "Voucher này đang tạm dừng áp dụng." };
+    }
+
+    if (v.usageLimit && v.usedCount >= v.usageLimit) {
+      return { valid: false, discountAmount: 0, message: "Voucher đã hết số lượt sử dụng." };
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (v.startDate && today < v.startDate) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        message: `Voucher sẽ có hiệu lực từ ngày ${v.startDate}.`,
+      };
+    }
+
+    if (v.endDate && today > v.endDate) {
+      return { valid: false, discountAmount: 0, message: "Voucher đã hết hạn sử dụng." };
+    }
+
+    if (v.minOrderValue && currentSubtotal < v.minOrderValue) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        message: `Đơn hàng tối thiểu ${v.minOrderValue.toLocaleString("vi-VN")}₫ để áp dụng.`,
+      };
+    }
+
+    let discount = 0;
+    if (v.discountType === "percent") {
+      discount = Math.round(currentSubtotal * (v.discountValue / 100));
+    } else {
+      discount = v.discountValue;
+    }
+    discount = Math.min(discount, currentSubtotal);
+
+    return {
+      valid: true,
+      discountAmount: discount,
+      message: `Áp dụng thành công voucher ${v.name}! Giảm ${discount.toLocaleString("vi-VN")}₫`,
+      voucher: v,
+    };
+  };
+
+  const addVoucher = (data: Omit<Voucher, "id" | "usedCount" | "createdAt">): Voucher => {
+    const newVoucher: Voucher = {
+      ...data,
+      id: `voucher-${Date.now()}`,
+      code: data.code.trim().toUpperCase(),
+      usedCount: 0,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+
+    setVouchers((prev) => {
+      const updated = [newVoucher, ...prev];
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mewmao_vouchers", JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    fetch("/api/vouchers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newVoucher),
+    }).catch(() => {});
+
+    return newVoucher;
+  };
+
+  const updateVoucher = (id: string, updates: Partial<Voucher>) => {
+    setVouchers((prev) => {
+      const updated = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mewmao_vouchers", JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    fetch("/api/vouchers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, updates }),
+    }).catch(() => {});
+  };
+
+  const deleteVoucher = async (id: string): Promise<boolean> => {
+    setVouchers((prev) => {
+      const updated = prev.filter((v) => v.id !== id);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mewmao_vouchers", JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    try {
+      await fetch(`/api/vouchers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch {}
+    return true;
+  };
+
   const placeOrder = (data: {
     customerName: string;
     customerPhone: string;
@@ -410,11 +605,40 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     quantity: number;
     paymentMethod: "vietqr" | "cod";
     affiliateCode?: string;
+    voucherCode?: string;
+    discountAmount?: number;
   }): Order => {
     const subtotalAmount = product.price * data.quantity;
-    const discountAmount = 0; // Bỏ giảm giá Promo: khách mua đúng giá niêm yết
+    const discountAmount = Math.min(subtotalAmount, Math.max(0, data.discountAmount || 0));
+    const totalAmount = Math.max(0, subtotalAmount - discountAmount);
     let commission = 0;
     let sellerToCredit: Seller | null = null;
+
+    // Tăng lượt sử dụng voucher nếu có áp dụng
+    if (data.voucherCode) {
+      const vCode = data.voucherCode.trim().toUpperCase();
+      setVouchers((prev) => {
+        const nextVouchers = prev.map((v) =>
+          v.code.toUpperCase() === vCode ? { ...v, usedCount: (v.usedCount || 0) + 1 } : v
+        );
+        if (typeof window !== "undefined") {
+          localStorage.setItem("mewmao_vouchers", JSON.stringify(nextVouchers));
+        }
+        return nextVouchers;
+      });
+
+      const matchedV = vouchers.find((v) => v.code.toUpperCase() === vCode);
+      if (matchedV) {
+        fetch("/api/vouchers", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: matchedV.id,
+            updates: { usedCount: (matchedV.usedCount || 0) + 1 },
+          }),
+        }).catch(() => {});
+      }
+    }
 
     // Nhận diện Seller qua thứ tự ưu tiên:
     // 1. Mã Affiliate truyền trực tiếp từ form (data.affiliateCode)
@@ -454,7 +678,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const totalAmount = subtotalAmount;
     const now = new Date();
     const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
@@ -473,12 +696,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         },
       ],
       subtotalAmount,
-      discountAmount: 0,
+      discountAmount,
       totalAmount,
       paymentMethod: data.paymentMethod,
       paymentStatus: data.paymentMethod === "vietqr" ? "paid" : "unpaid",
       status: "pending",
       affiliateCode: sellerToCredit ? sellerToCredit.affiliateCode : (refCode || undefined),
+      voucherCode: data.voucherCode ? data.voucherCode.trim().toUpperCase() : undefined,
       sellerCommission: commission,
       createdAt: formattedDate,
     };
@@ -545,7 +769,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       customer_name: newOrder.customerName,
       customer_phone: newOrder.customerPhone,
       customer_address: newOrder.customerAddress,
-      customer_note: newOrder.customerNote || null,
+      customer_note: newOrder.voucherCode
+        ? `${newOrder.customerNote ? newOrder.customerNote + " " : ""}[Voucher: ${newOrder.voucherCode} -${newOrder.discountAmount?.toLocaleString("vi-VN")}₫]`
+        : (newOrder.customerNote || null),
       items: newOrder.items,
       subtotal: newOrder.subtotalAmount,
       discount_amount: newOrder.discountAmount,
@@ -1140,6 +1366,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sellers,
         payouts,
         b2bInquiries,
+        vouchers,
+        validateVoucher,
+        addVoucher,
+        updateVoucher,
+        deleteVoucher,
         placeOrder,
         updateOrderStatus,
         deleteOrder,
