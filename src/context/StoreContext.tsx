@@ -43,6 +43,8 @@ interface StoreContextType {
   payouts: PayoutRequest[];
   b2bInquiries: B2BInquiry[];
   vouchers: Voucher[];
+  selectedVoucherCode: string | null;
+  setSelectedVoucherCode: (code: string | null) => void;
   placeOrder: (data: {
     customerName: string;
     customerPhone: string;
@@ -191,6 +193,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [payouts, setPayouts] = useState<PayoutRequest[]>(INITIAL_PAYOUTS);
   const [b2bInquiries, setB2BInquiries] = useState<B2BInquiry[]>(INITIAL_B2B_INQUIRIES);
   const [vouchers, setVouchers] = useState<Voucher[]>(DEFAULT_VOUCHERS);
+  const [selectedVoucherCode, setSelectedVoucherCode] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
 
   // Initialize from LocalStorage and Cookie to handle URL ref code
@@ -1367,6 +1370,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         payouts,
         b2bInquiries,
         vouchers,
+        selectedVoucherCode,
+        setSelectedVoucherCode,
         validateVoucher,
         addVoucher,
         updateVoucher,

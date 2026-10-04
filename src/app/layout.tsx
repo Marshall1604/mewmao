@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import QuickBuyDrawer from "@/components/QuickBuyDrawer";
 import AgeGateModal from "@/components/AgeGateModal";
 import ContactQuickMenu from "@/components/ContactQuickMenu";
+import VoucherFloatingWidget from "@/components/VoucherFloatingWidget";
 
 const sans = Plus_Jakarta_Sans({
   subsets: ["latin", "vietnamese"],
@@ -61,6 +62,7 @@ export default function RootLayout({
           <QuickBuyDrawer />
           <AgeGateModal />
           <ContactQuickMenu />
+          <VoucherFloatingWidget />
         </StoreProvider>
       </body>
     </html>

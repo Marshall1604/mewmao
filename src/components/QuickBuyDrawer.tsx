@@ -25,6 +25,7 @@ export default function QuickBuyDrawer() {
     sellers,
     placeOrder,
     validateVoucher,
+    selectedVoucherCode,
     t,
     language,
   } = useStore();
@@ -50,6 +51,20 @@ export default function QuickBuyDrawer() {
       setManualRefCode(activeRefCode);
     }
   }, [activeRefCode]);
+
+  // Tự động điền và áp dụng voucher khi có selectedVoucherCode (từ Widget Khuyến Mãi)
+  useEffect(() => {
+    if (selectedVoucherCode && isQuickBuyOpen) {
+      setVoucherInput(selectedVoucherCode);
+      const res = validateVoucher(selectedVoucherCode, product.price * cartQuantity);
+      if (res.valid && res.voucher) {
+        setAppliedVoucher(res.voucher);
+        setVoucherDiscount(res.discountAmount);
+        setVoucherSuccess(res.message);
+        setVoucherError(null);
+      }
+    }
+  }, [selectedVoucherCode, isQuickBuyOpen, cartQuantity, product.price]);
 
   // Kiểm tra tính hợp lệ của mã Đại sứ (thời gian thực)
   const currentCode = manualRefCode.trim().toUpperCase();
