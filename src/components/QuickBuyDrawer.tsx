@@ -20,6 +20,7 @@ export default function QuickBuyDrawer() {
     setIsQuickBuyOpen,
     activeRefCode,
     setActiveRefCode,
+    sellers,
     placeOrder,
     t,
     language,
@@ -39,6 +40,14 @@ export default function QuickBuyDrawer() {
       setManualRefCode(activeRefCode);
     }
   }, [activeRefCode]);
+
+  // Kiểm tra tính hợp lệ của mã Đại sứ (thời gian thực)
+  const currentCode = manualRefCode.trim().toUpperCase();
+  const isValidCode = currentCode
+    ? sellers.some(
+        (s) => s.affiliateCode && s.affiliateCode.trim().toUpperCase() === currentCode
+      )
+    : false;
 
   if (!isQuickBuyOpen) return null;
 
@@ -259,7 +268,13 @@ export default function QuickBuyDrawer() {
                         }
                       }}
                       placeholder={t("drawer_ref_placeholder") || "Nhập mã affiliate (VD: LMN, HOAI...)"}
-                      className="w-full px-4 py-2.5 text-xs rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 bg-white uppercase font-mono tracking-widest text-zinc-800 placeholder:text-zinc-300 transition-colors"
+                      className={`w-full px-4 py-2.5 text-xs rounded-xl border bg-white uppercase font-mono tracking-widest text-zinc-800 placeholder:text-zinc-300 transition-all focus:outline-none ${
+                        !currentCode
+                          ? "border-zinc-200 focus:border-zinc-950"
+                          : isValidCode
+                          ? "border-emerald-400 focus:border-emerald-500"
+                          : "border-rose-300 focus:border-rose-400"
+                      }`}
                     />
                     {manualRefCode && (
                       <button
@@ -275,6 +290,17 @@ export default function QuickBuyDrawer() {
                       </button>
                     )}
                   </div>
+
+                  {/* Thanh màu mỏng nhỏ: Xanh lá nếu đúng, Hồng đỏ nếu sai */}
+                  {currentCode && (
+                    <div
+                      className={`w-full h-[3px] rounded-full transition-all duration-300 animate-fade-in ${
+                        isValidCode
+                          ? "bg-[#84cc16] shadow-[0_0_8px_rgba(132,204,22,0.45)]"
+                          : "bg-[#f43f5e] shadow-[0_0_8px_rgba(244,63,94,0.45)]"
+                      }`}
+                    />
+                  )}
                 </div>
 
                 {/* Customer Info */}
