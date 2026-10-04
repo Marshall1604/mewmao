@@ -23,10 +23,11 @@ import {
   Smartphone,
   Send,
   Building,
+  X,
 } from "lucide-react";
 
 export default function SellerPortalPage() {
-  const { sellers, orders, requestPayout, payouts, language } = useStore();
+  const { sellers, orders, requestPayout, payouts, language, registerSeller } = useStore();
   const isEn = language === "en";
   const formatPrice = (val: number) =>
     isEn ? `${val.toLocaleString("en-US")}₫` : `${val.toLocaleString("vi-VN")}₫`;
@@ -36,6 +37,13 @@ export default function SellerPortalPage() {
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [pinError, setPinError] = useState<string>("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Registration Modal State
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [registerForm, setRegisterForm] = useState({ name: "", phone: "", email: "" });
+  const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [registerError, setRegisterError] = useState("");
 
   // UI States
   const [copiedLink, setCopiedLink] = useState(false);
@@ -138,6 +146,14 @@ export default function SellerPortalPage() {
   const verifyPin = (pin: string) => {
     const matched = sellers.find((s) => (s.pin || "").trim() === pin.trim());
     if (matched) {
+      if (matched.status === "pending") {
+        setPinError(
+          isEn
+            ? "Your seller account is awaiting Admin approval. Mewmao will contact you shortly!"
+            : "Tài khoản của bạn đang chờ Admin duyệt. Mewmao sẽ liên hệ lại với bạn sớm nhất!"
+        );
+        return;
+      }
       setAuthenticatedSeller(matched);
       setPinError("");
       if (typeof window !== "undefined") {
@@ -153,6 +169,42 @@ export default function SellerPortalPage() {
         setPinDigits(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }, 700);
+    }
+  };
+
+  const handleRegisterSeller = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registerForm.name.trim()) {
+      setRegisterError(isEn ? "Please enter your name" : "Vui lòng nhập họ và tên");
+      return;
+    }
+    if (!registerForm.phone.trim()) {
+      setRegisterError(isEn ? "Please enter your phone number" : "Vui lòng nhập số điện thoại");
+      return;
+    }
+    if (!registerForm.email.trim()) {
+      setRegisterError(isEn ? "Please enter your email" : "Vui lòng nhập địa chỉ email");
+      return;
+    }
+
+    setIsSubmittingRegister(true);
+    setRegisterError("");
+    try {
+      await registerSeller({
+        name: registerForm.name.trim(),
+        phone: registerForm.phone.trim(),
+        email: registerForm.email.trim(),
+      });
+      setRegisterSuccess(true);
+    } catch (err: any) {
+      setRegisterError(
+        err.message ||
+          (isEn
+            ? "Registration failed. Please try again."
+            : "Đăng ký thất bại. Vui lòng thử lại.")
+      );
+    } finally {
+      setIsSubmittingRegister(false);
     }
   };
 
@@ -306,7 +358,22 @@ export default function SellerPortalPage() {
                 </button>
               </form>
 
-
+              {/* Đăng ký làm đối tác Seller */}
+              <div className="text-center pt-3 pb-1 border-t border-zinc-100 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegisterModalOpen(true);
+                    setRegisterSuccess(false);
+                    setRegisterForm({ name: "", phone: "", email: "" });
+                    setRegisterError("");
+                  }}
+                  className="text-xs text-mewmao-orange font-bold hover:underline transition-colors inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{isEn ? "Register to become a Seller Partner" : "Đăng ký làm đối tác Seller"}</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
 
               {/* Contact Admin Support */}
               <div className="text-center pt-2">
@@ -1031,6 +1098,141 @@ export default function SellerPortalPage() {
               </div>
             </div>
           </main>
+        </div>
+      )}
+
+      {/* ── MODAL: ĐĂNG KÝ LÀM ĐỐI TÁC SELLER ── */}
+      {registerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-3xl max-w-sm sm:max-w-md w-full p-6 sm:p-8 shadow-2xl relative space-y-5 border border-zinc-100">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-zinc-100">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-mewmao-orange font-bold">
+                  MEWMAO DISTILLERY
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-zinc-950 mt-0.5">
+                  {isEn ? "Seller Partner Registration" : "Đăng Ký Làm Đối Tác Seller"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRegisterModalOpen(false)}
+                className="p-1 rounded-full text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!registerSuccess ? (
+              <form onSubmit={handleRegisterSeller} className="space-y-4">
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  {isEn
+                    ? "Fill in your details below to register as a Mewmao Seller Partner. Our team will verify and activate your account."
+                    : "Điền thông tin của bạn bên dưới để đăng ký làm đối tác Đại Sứ Mewmao. Đội ngũ quản trị sẽ liên hệ và duyệt kích hoạt tài khoản của bạn."}
+                </p>
+
+                {/* 1. Họ và Tên Seller * */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-zinc-700 block">
+                    {isEn ? "Full Name *" : "Họ và Tên Seller *"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={registerForm.name}
+                    onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                    placeholder={isEn ? "e.g. John Doe" : "VD: Nguyễn Văn A"}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs sm:text-sm focus:outline-none focus:border-zinc-950 transition-colors bg-white"
+                  />
+                </div>
+
+                {/* 2. Số Điện Thoại * */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-zinc-700 block">
+                    {isEn ? "Phone Number *" : "Số Điện Thoại *"}
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={registerForm.phone}
+                    onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                    placeholder={isEn ? "e.g. 0988 888 888" : "VD: 0988 888 888"}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs sm:text-sm focus:outline-none focus:border-zinc-950 transition-colors bg-white"
+                  />
+                </div>
+
+                {/* 3. Email * */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-zinc-700 block">
+                    {isEn ? "Email *" : "Email *"}
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={registerForm.email}
+                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                    placeholder={isEn ? "e.g. seller@example.com" : "VD: seller@mewmao.vn"}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs sm:text-sm focus:outline-none focus:border-zinc-950 transition-colors bg-white"
+                  />
+                </div>
+
+                {registerError && (
+                  <p className="text-xs text-rose-600 font-medium">{registerError}</p>
+                )}
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setRegisterModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50 text-xs font-medium transition-colors"
+                  >
+                    {isEn ? "Cancel" : "Hủy Bỏ"}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingRegister}
+                    className="btn-mewmao-black flex-1 sm:flex-initial px-6 py-2.5 text-xs font-bold shadow-md hover:scale-[1.02] active:scale-98 transition-all disabled:opacity-50"
+                  >
+                    {isSubmittingRegister
+                      ? (isEn ? "Submitting..." : "Đang gửi...")
+                      : (isEn ? "Submit Registration" : "Gửi Đăng Ký Đối Tác")}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* THÔNG BÁO SAU KHI ĐĂNG KÝ XONG */
+              <div className="text-center py-4 space-y-4 animate-fade-in">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 shadow-xs">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <div className="space-y-1.5">
+                  <h4 className="text-base sm:text-lg font-bold text-zinc-950">
+                    {isEn ? "Registration Submitted Successfully!" : "Đăng Ký Đối Tác Thành Công!"}
+                  </h4>
+                  <p className="text-sm font-semibold text-mewmao-orange">
+                    {isEn
+                      ? "Mewmao will contact you as soon as possible."
+                      : "Mewmao sẽ liên hệ với lại với bạn sớm nhất."}
+                  </p>
+                  <p className="text-xs text-zinc-500 leading-relaxed pt-1">
+                    {isEn
+                      ? "Your account is awaiting Admin approval. Once approved, you will receive your personal Affiliate code and PIN to access the Seller Portal."
+                      : "Hồ sơ của bạn đang được Admin xem xét và kích hoạt. Sau khi được duyệt, bạn sẽ nhận được mã Affiliate và mã PIN để bắt đầu bán hàng và theo dõi hoa hồng."}
+                  </p>
+                </div>
+                <div className="pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setRegisterModalOpen(false)}
+                    className="btn-mewmao-black w-full justify-center py-3 text-xs font-bold"
+                  >
+                    {isEn ? "Done / Close" : "Đã Hiểu / Hoàn Tất"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

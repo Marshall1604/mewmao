@@ -59,6 +59,7 @@ interface StoreContextType {
     name: string;
     email: string;
     phone?: string;
+    status?: "active" | "pending" | "inactive";
     affiliateCode?: string;
     pin?: string;
     commissionRate?: number;
@@ -69,6 +70,11 @@ interface StoreContextType {
       accountHolder: string;
     };
   }) => Seller;
+  registerSeller: (data: {
+    name: string;
+    phone: string;
+    email: string;
+  }) => Promise<Seller>;
   deleteSeller: (sellerId: string) => Promise<boolean>;
   updateSeller: (sellerId: string, updates: Partial<Seller>) => void;
   updateStock: (newStock: number) => void;
@@ -245,6 +251,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           email: row.email || "",
           phone: row.phone || "",
           role: "seller",
+          status: (row.status as any) || "active",
           affiliateCode: row.affiliate_code,
           pin: row.pin,
           commissionRate: Number(row.commission_rate) || 0.15,
@@ -709,6 +716,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     name: string;
     email: string;
     phone?: string;
+    status?: "active" | "pending" | "inactive";
     affiliateCode?: string;
     pin?: string;
     commissionRate?: number;
@@ -739,6 +747,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       email: data.email.trim(),
       phone: data.phone?.trim() || "",
       role: "seller",
+      status: data.status || "active",
       affiliateCode: code,
       pin: generatedPin,
       commissionRate: data.commissionRate !== undefined ? data.commissionRate : 0.15,
@@ -773,7 +782,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       bank_name: newSeller.bankInfo.bankName,
       account_number: newSeller.bankInfo.accountNumber,
       account_holder: newSeller.bankInfo.accountHolder,
-      status: "active",
+      status: newSeller.status,
     };
 
     try {
@@ -783,7 +792,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(dbPayload),
       }).then(() => refreshData());
     } catch (e) {
-      console.warn("API add seller error:", e);
+      console.warn("API insert seller fallback error:", e);
     }
 
     if (isSupabaseConfigured && supabase) {
@@ -791,11 +800,97 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .from("sellers")
         .insert(dbPayload)
         .then(({ error }) => {
-          if (error) {
-            console.error("Error inserting seller into Supabase:", error);
-          } else {
-            refreshData();
-          }
+          if (error) console.error("Error inserting seller into Supabase:", error);
+          else refreshData();
+        });
+    }
+
+    return newSeller;
+  };
+
+  const registerSeller = async (data: {
+    name: string;
+    phone: string;
+    email: string;
+  }): Promise<Seller> => {
+    const rawClean = data.name
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase()
+      .slice(0, 8);
+    const code = rawClean
+      ? `${rawClean}${Math.floor(10 + Math.random() * 90)}`
+      : `SELLER${Math.floor(100 + Math.random() * 900)}`;
+    const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const newSeller: Seller = {
+      id: `seller-${Date.now()}`,
+      name: data.name.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      role: "seller",
+      status: "pending",
+      affiliateCode: code,
+      pin: generatedPin,
+      commissionRate: 0.15,
+      promoDiscountPerBottle: 0,
+      balance: 0,
+      totalWithdrawn: 0,
+      totalEarned: 0,
+      clicksCount: 0,
+      ordersCount: 0,
+      bottlesSoldCount: 0,
+      createdAt: new Date().toISOString().split("T")[0],
+      bankInfo: {
+        bankName: "",
+        accountNumber: "",
+        accountHolder: "",
+      },
+    };
+
+    setSellers((prev) => [newSeller, ...prev]);
+
+    const dbPayload = {
+      id: newSeller.id,
+      name: newSeller.name,
+      phone: newSeller.phone,
+      email: newSeller.email,
+      affiliate_code: newSeller.affiliateCode,
+      pin: newSeller.pin,
+      commission_rate: newSeller.commissionRate,
+      discount_code: null,
+      discount_percent: 0,
+      bottles_sold_count: 0,
+      orders_count: 0,
+      balance: 0,
+      total_earned: 0,
+      total_withdrawn: 0,
+      bank_name: "",
+      account_number: "",
+      account_holder: "",
+      status: "pending",
+    };
+
+    try {
+      await fetch("/api/sellers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dbPayload),
+      });
+      await refreshData();
+    } catch (e) {
+      console.warn("API register seller fallback error:", e);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      supabase
+        .from("sellers")
+        .insert(dbPayload)
+        .then(({ error }) => {
+          if (error) console.error("Error inserting pending seller to Supabase:", error);
+          else refreshData();
         });
     }
 
@@ -852,7 +947,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.phone !== undefined) payload.phone = updates.phone;
     if (updates.email !== undefined) payload.email = updates.email;
+    if (updates.affiliateCode !== undefined) payload.affiliate_code = updates.affiliateCode;
     if (updates.pin !== undefined) payload.pin = updates.pin;
+    if (updates.status !== undefined) payload.status = updates.status;
     if (updates.commissionRate !== undefined)
       payload.commission_rate = updates.commissionRate;
     if (updates.bankInfo) {
@@ -1050,6 +1147,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         requestPayout,
         approvePayout,
         addSeller,
+        registerSeller,
         deleteSeller,
         updateSeller,
         updateStock,

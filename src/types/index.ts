@@ -60,6 +60,7 @@ export interface Seller {
   email: string;
   phone?: string;
   role: "seller";
+  status?: "active" | "pending" | "inactive";
   affiliateCode: string;
   pin: string; // Mã PIN đăng nhập của Seller (VD: "1234")
   commissionRate: number; // e.g. 0.15 (15%)

@@ -175,12 +175,25 @@ export default function AdminPage() {
   const [sellerModalOpen, setSellerModalOpen] = useState(false);
   const [editingSellerId, setEditingSellerId] = useState<string | null>(null);
   const [commissionAmountInput, setCommissionAmountInput] = useState<string>("");
-  const [sellerForm, setSellerForm] = useState({
+  const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "pending" | "active">("all");
+  const [sellerForm, setSellerForm] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    affiliateCode: string;
+    pin: string;
+    status: "active" | "pending" | "inactive";
+    commissionRate: number;
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  }>({
     name: "",
     email: "",
     phone: "",
     affiliateCode: "",
     pin: "123456",
+    status: "active",
     commissionRate: 15,
     bankName: "",
     accountNumber: "",
@@ -240,14 +253,22 @@ export default function AdminPage() {
   });
 
   // Filter Sellers
+  const pendingSellersCount = sellers.filter((s) => s.status === "pending").length;
   const filteredSellers = sellers.filter((s) => {
     const q = sellerSearchQuery.toLowerCase().trim();
-    return (
+    const matchesSearch =
       !q ||
       s.name.toLowerCase().includes(q) ||
       s.affiliateCode.toLowerCase().includes(q) ||
-      (s.phone && s.phone.includes(q))
-    );
+      (s.email && s.email.toLowerCase().includes(q)) ||
+      (s.phone && s.phone.includes(q));
+
+    const matchesStatus =
+      sellerStatusFilter === "all" ||
+      (sellerStatusFilter === "pending" && s.status === "pending") ||
+      (sellerStatusFilter === "active" && s.status !== "pending");
+
+    return matchesSearch && matchesStatus;
   });
 
   // ── EXPORT EXCEL (CSV UTF-8 BOM) ──
@@ -317,6 +338,7 @@ export default function AdminPage() {
       phone: "",
       affiliateCode: "",
       pin: Math.floor(100000 + Math.random() * 900000).toString(),
+      status: "active",
       commissionRate: defaultRate,
       bankName: "",
       accountNumber: "",
@@ -326,7 +348,7 @@ export default function AdminPage() {
     setSellerModalOpen(true);
   };
 
-  const handleOpenEditSeller = (seller: Seller) => {
+  const handleOpenEditSeller = (seller: Seller, forceApprove = false) => {
     setEditingSellerId(seller.id);
     const ratePercent = Number((seller.commissionRate * 100).toFixed(1));
     const amountVal = Math.round(product.price * seller.commissionRate);
@@ -336,6 +358,7 @@ export default function AdminPage() {
       phone: seller.phone || "",
       affiliateCode: seller.affiliateCode,
       pin: seller.pin || "123456",
+      status: forceApprove ? "active" : (seller.status || "active"),
       commissionRate: ratePercent,
       bankName: seller.bankInfo.bankName,
       accountNumber: seller.bankInfo.accountNumber,
@@ -453,6 +476,8 @@ export default function AdminPage() {
         .slice(0, 8) ||
       `SELLER${Math.floor(100 + Math.random() * 900)}`;
 
+    const finalStatus = sellerForm.status === "pending" ? "active" : (sellerForm.status || "active");
+
     if (editingSellerId) {
       updateSeller(editingSellerId, {
         name: sellerForm.name.trim(),
@@ -460,6 +485,7 @@ export default function AdminPage() {
         phone: sellerForm.phone.trim(),
         affiliateCode: finalAffiliateCode,
         pin: sellerPin,
+        status: finalStatus,
         commissionRate: Number(sellerForm.commissionRate) / 100,
         promoDiscountPerBottle: 0,
         bankInfo: {
@@ -475,6 +501,7 @@ export default function AdminPage() {
         phone: sellerForm.phone.trim(),
         affiliateCode: finalAffiliateCode,
         pin: sellerPin,
+        status: finalStatus,
         commissionRate: Number(sellerForm.commissionRate) / 100,
         promoDiscountPerBottle: 0,
         bankInfo: {
@@ -777,13 +804,18 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => { setActiveTab("sellers"); }}
-                  className={`py-1 transition-colors whitespace-nowrap ${
+                  className={`py-1 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     activeTab === "sellers"
                       ? "text-zinc-950 font-bold border-b-2 border-zinc-950"
                       : "text-zinc-400 hover:text-zinc-800"
                   }`}
                 >
-                  Dashboard Seller & Users ({sellers.length})
+                  <span>Dashboard Seller & Users ({sellers.length})</span>
+                  {pendingSellersCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-bold animate-pulse">
+                      {pendingSellersCount} chờ duyệt
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -1492,20 +1524,70 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* Search Sellers + Mobile View Toggle */}
+                {/* Search Sellers + Status Filters + Mobile View Toggle */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                  <div className="relative flex-1 max-w-sm">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                    <input
-                      type="text"
-                      value={sellerSearchQuery}
-                      onChange={(e) => setSellerSearchQuery(e.target.value)}
-                      placeholder="Tìm theo tên seller, mã affiliate, SĐT..."
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-zinc-950 placeholder:text-zinc-400 bg-white"
-                    />
+                  <div className="flex flex-wrap items-center gap-2 flex-1">
+                    <div className="relative flex-1 min-w-[200px] max-w-sm">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                      <input
+                        type="text"
+                        value={sellerSearchQuery}
+                        onChange={(e) => setSellerSearchQuery(e.target.value)}
+                        placeholder="Tìm theo tên seller, mã affiliate, SĐT..."
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-zinc-950 placeholder:text-zinc-400 bg-white"
+                      />
+                    </div>
+
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1 border border-zinc-200 rounded-xl p-1 bg-zinc-50 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSellerStatusFilter("all")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          sellerStatusFilter === "all"
+                            ? "bg-white text-zinc-950 shadow-2xs font-bold"
+                            : "text-zinc-500 hover:text-zinc-900"
+                        }`}
+                      >
+                        Tất cả ({sellers.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSellerStatusFilter("pending")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                          sellerStatusFilter === "pending"
+                            ? "bg-amber-500 text-white shadow-2xs font-bold"
+                            : "text-zinc-600 hover:text-zinc-950"
+                        }`}
+                      >
+                        <span>Chờ duyệt</span>
+                        {pendingSellersCount > 0 && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                              sellerStatusFilter === "pending"
+                                ? "bg-white text-amber-600"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {pendingSellersCount}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSellerStatusFilter("active")}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          sellerStatusFilter === "active"
+                            ? "bg-zinc-900 text-white shadow-2xs font-bold"
+                            : "text-zinc-500 hover:text-zinc-900"
+                        }`}
+                      >
+                        Hoạt động ({sellers.filter((s) => s.status !== "pending").length})
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
                     <span className="text-xs text-zinc-500">
                       Tổng cộng: <strong>{sellers.length}</strong> đại sứ đang hoạt động
                     </span>
@@ -1551,16 +1633,34 @@ export default function AdminPage() {
                     );
 
                     return (
-                      <div key={s.id} className="border border-zinc-200/80 rounded-2xl p-4 bg-white shadow-xs space-y-3">
-                        <div className="flex items-start justify-between">
+                      <div
+                        key={s.id}
+                        className={`border rounded-2xl p-4 shadow-xs space-y-3 transition-colors ${
+                          s.status === "pending"
+                            ? "bg-amber-50/40 border-amber-300/80"
+                            : "bg-white border-zinc-200/80"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
                           <div>
-                            <button
-                              type="button"
-                              onClick={() => setViewingSeller(s)}
-                              className="font-bold text-sm text-zinc-950 text-left hover:text-mewmao-orange"
-                            >
-                              {s.name}
-                            </button>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setViewingSeller(s)}
+                                className="font-bold text-sm text-zinc-950 text-left hover:text-mewmao-orange"
+                              >
+                                {s.name}
+                              </button>
+                              {s.status === "pending" ? (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold">
+                                  Chờ Duyệt
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-medium">
+                                  Hoạt Động
+                                </span>
+                              )}
+                            </div>
                             {s.phone && (
                               <a href={`tel:${s.phone}`} className="text-xs font-mono text-zinc-500 block">
                                 {s.phone}
@@ -1619,16 +1719,27 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        <div className="text-[11px] text-zinc-500 font-mono pt-1 border-t border-zinc-100 flex items-center justify-between">
-                          <span className="truncate max-w-[180px]">{s.bankInfo.bankName} • {s.bankInfo.accountNumber}</span>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setViewingSeller(s)}
-                              className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-[11px] font-semibold text-zinc-700"
-                            >
-                              Xem số liệu
-                            </button>
+                        <div className="text-[11px] text-zinc-500 font-mono pt-1 border-t border-zinc-100 flex items-center justify-between gap-2 flex-wrap">
+                          <span className="truncate max-w-[180px]">{s.bankInfo.bankName || "Chưa cập nhật NH"}</span>
+                          <div className="flex items-center gap-1 shrink-0 ml-auto">
+                            {s.status === "pending" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditSeller(s, true)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs inline-flex items-center gap-1 active:scale-95 transition-all"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Duyệt Ngay</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setViewingSeller(s)}
+                                className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-[11px] font-semibold text-zinc-700"
+                              >
+                                Xem số liệu
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() =>
@@ -1709,17 +1820,35 @@ export default function AdminPage() {
                         );
 
                         return (
-                          <tr key={s.id} className="hover:bg-zinc-50/60 transition-colors">
+                          <tr
+                            key={s.id}
+                            className={`transition-colors ${
+                              s.status === "pending"
+                                ? "bg-amber-50/30 hover:bg-amber-50/60"
+                                : "hover:bg-zinc-50/60"
+                            }`}
+                          >
                             
-                            {/* Tên Seller */}
+                            {/* Tên Seller & Trạng Thái */}
                             <td className="py-3.5 px-4 font-bold text-zinc-950 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => setViewingSeller(s)}
-                                className="text-left hover:text-mewmao-orange hover:underline font-bold"
-                              >
-                                {s.name}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingSeller(s)}
+                                  className="text-left hover:text-mewmao-orange hover:underline font-bold"
+                                >
+                                  {s.name}
+                                </button>
+                                {s.status === "pending" ? (
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-bold shrink-0">
+                                    Chờ Duyệt
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-medium shrink-0">
+                                    Hoạt Động
+                                  </span>
+                                )}
+                              </div>
                               {s.phone && (
                                 <span className="block text-[11px] font-mono font-normal text-zinc-400">
                                   {s.phone}
@@ -1804,20 +1933,36 @@ export default function AdminPage() {
 
                           {/* Ngân hàng */}
                           <td className="py-3.5 px-4 text-[11px] text-zinc-500 whitespace-nowrap font-mono">
-                            {s.bankInfo.bankName} • {s.bankInfo.accountNumber} ({s.bankInfo.accountHolder})
+                            {s.bankInfo.bankName ? (
+                              `${s.bankInfo.bankName} • ${s.bankInfo.accountNumber} (${s.bankInfo.accountHolder})`
+                            ) : (
+                              <span className="text-zinc-400 italic">Chưa cập nhật NH</span>
+                            )}
                           </td>
 
                           {/* Thao tác */}
                           <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setViewingSeller(s)}
-                                className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-[11px] text-zinc-700 font-semibold"
-                                title="Xem dashboard chi tiết"
-                              >
-                                Xem số liệu
-                              </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {s.status === "pending" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditSeller(s, true)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs inline-flex items-center gap-1 active:scale-95 transition-all"
+                                  title="Duyệt và thiết lập tài khoản Seller này"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Duyệt</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingSeller(s)}
+                                  className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-[11px] text-zinc-700 font-semibold"
+                                  title="Xem dashboard chi tiết"
+                                >
+                                  Xem số liệu
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() =>
@@ -2071,9 +2216,17 @@ export default function AdminPage() {
             {/* 1. Sticky Header */}
             <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-5 sm:px-7 py-3.5 sm:py-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-mewmao-orange" />
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    sellerForm.status === "pending" ? "bg-amber-500 animate-pulse" : "bg-mewmao-orange"
+                  }`}
+                />
                 <h3 className="text-base sm:text-lg font-bold text-zinc-950">
-                  {editingSellerId ? "Chỉnh Sửa Thông Tin Seller" : "Tạo Mới Seller & Cấp Mã Affiliate"}
+                  {sellerForm.status === "pending"
+                    ? "Duyệt & Thiết Lập Tài Khoản Seller"
+                    : editingSellerId
+                    ? "Chỉnh Sửa Thông Tin Seller"
+                    : "Tạo Mới Seller & Cấp Mã Affiliate"}
                 </h3>
               </div>
               <button
@@ -2088,6 +2241,52 @@ export default function AdminPage() {
             {/* 2. Scrollable Form Body */}
             <form onSubmit={handleSaveSeller} className="flex flex-col flex-1 overflow-hidden">
               <div className="overflow-y-auto px-5 sm:px-7 py-4 sm:py-5 space-y-4 text-xs font-sans flex-1 overscroll-contain">
+                {/* Banner hướng dẫn khi tài khoản đang ở trạng thái Chờ Duyệt */}
+                {sellerForm.status === "pending" && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-xs">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span>Hồ sơ Seller đăng ký đang chờ bạn duyệt</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Bạn có thể tùy chỉnh lại <strong>Mã Affiliate</strong>, <strong>Mã PIN</strong>, và <strong>Tỷ lệ Hoa Hồng (%)</strong> bên dưới. Bấm nút <strong>"Duyệt & Kích Hoạt Seller"</strong> ở chân modal để tài khoản chính thức hoạt động và seller có thể đăng nhập.
+                    </p>
+                  </div>
+                )}
+
+                {/* Trạng thái tài khoản (Status Switch) */}
+                <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] uppercase text-zinc-500 font-bold block">Trạng Thái Tài Khoản</span>
+                    <span className="text-xs font-bold text-zinc-900">
+                      {sellerForm.status === "pending" ? "Đang chờ Admin duyệt" : "Đã duyệt & Đang hoạt động"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 border border-zinc-200 rounded-xl p-1 bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setSellerForm((prev) => ({ ...prev, status: "pending" }))}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                        sellerForm.status === "pending"
+                          ? "bg-amber-500 text-white shadow-2xs"
+                          : "text-zinc-500 hover:text-zinc-900"
+                      }`}
+                    >
+                      Chờ Duyệt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSellerForm((prev) => ({ ...prev, status: "active" }))}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+                        sellerForm.status !== "pending"
+                          ? "bg-emerald-600 text-white shadow-2xs"
+                          : "text-zinc-500 hover:text-zinc-900"
+                      }`}
+                    >
+                      Hoạt Động
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] uppercase text-zinc-500 font-bold block">Họ và Tên Seller *</label>
@@ -2337,9 +2536,22 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 sm:flex-initial btn-mewmao-black justify-center px-6 py-2.5 text-xs font-bold shadow-md hover:scale-[1.02] active:scale-98 transition-all"
+                  onClick={() => {
+                    if (sellerForm.status === "pending") {
+                      setSellerForm((prev) => ({ ...prev, status: "active" }));
+                    }
+                  }}
+                  className={`flex-1 sm:flex-initial justify-center px-6 py-2.5 text-xs font-bold shadow-md hover:scale-[1.02] active:scale-98 transition-all ${
+                    sellerForm.status === "pending"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                      : "btn-mewmao-black"
+                  }`}
                 >
-                  {editingSellerId ? "Lưu Thay Đổi" : "Tạo Seller Ngay"}
+                  {sellerForm.status === "pending"
+                    ? "✓ Duyệt & Kích Hoạt Seller"
+                    : editingSellerId
+                    ? "Lưu Thay Đổi"
+                    : "Tạo Seller Ngay"}
                 </button>
               </div>
             </form>
