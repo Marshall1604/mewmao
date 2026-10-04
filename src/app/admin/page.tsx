@@ -38,6 +38,8 @@ import {
   Mail,
   User,
   ShoppingBag,
+  Send,
+  MessageSquare,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -184,6 +186,23 @@ export default function AdminPage() {
     accountNumber: "",
     accountHolder: "",
   });
+  const [autoNotifySeller, setAutoNotifySeller] = useState(true);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [copiedSmsText, setCopiedSmsText] = useState(false);
+  const [notificationResultModal, setNotificationResultModal] = useState<{
+    open: boolean;
+    sellerName: string;
+    email: string;
+    phone: string;
+    affiliateCode: string;
+    pin: string;
+    emailSent: boolean;
+    emailError?: string | null;
+    emailWarning?: string | null;
+    smsText: string;
+    zaloShareUrl?: string | null;
+    smsUri?: string | null;
+  } | null>(null);
 
   // ── 6. MODAL PRINT PACKING SLIP ──
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
@@ -355,6 +374,67 @@ export default function AdminPage() {
     }
   };
 
+  const handleSendSellerNotification = async (
+    payload: {
+      name: string;
+      email?: string;
+      phone?: string;
+      affiliateCode: string;
+      pin: string;
+      commissionRatePercent?: number;
+      commissionAmount?: number;
+    },
+    showModal = true
+  ) => {
+    setIsSendingNotification(true);
+    try {
+      const originUrl = typeof window !== "undefined" ? window.location.origin : "https://www.mewmao.com";
+      const ratePct = payload.commissionRatePercent ?? 15;
+      const amount = payload.commissionAmount ?? Math.round(product.price * (ratePct / 100));
+
+      const res = await fetch("/api/notify-seller", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: payload.name,
+          email: payload.email,
+          phone: payload.phone,
+          affiliateCode: payload.affiliateCode,
+          refLink: `${originUrl}/?ref=${payload.affiliateCode}`,
+          pin: payload.pin,
+          commissionRatePercent: ratePct,
+          commissionAmountPerBottle: amount,
+        }),
+      });
+
+      const data = await res.json();
+      if (showModal) {
+        setNotificationResultModal({
+          open: true,
+          sellerName: payload.name,
+          email: payload.email || "",
+          phone: payload.phone || "",
+          affiliateCode: payload.affiliateCode,
+          pin: payload.pin,
+          emailSent: !!data.emailSent,
+          emailError: data.emailError,
+          emailWarning: data.emailWarning,
+          smsText: data.smsText || "",
+          zaloShareUrl: data.zaloShareUrl,
+          smsUri: data.smsUri,
+        });
+      }
+      return data;
+    } catch (err: any) {
+      console.error("Lỗi gửi thông báo cho Seller:", err);
+      if (showModal) {
+        alert("Lỗi khi kết nối dịch vụ gửi thông báo: " + (err.message || err));
+      }
+    } finally {
+      setIsSendingNotification(false);
+    }
+  };
+
   const handleSaveSeller = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sellerForm.name.trim()) {
@@ -363,13 +443,22 @@ export default function AdminPage() {
     }
 
     const sellerPin = sellerForm.pin.trim() || Math.floor(1000 + Math.random() * 9000).toString();
+    const finalAffiliateCode = sellerForm.affiliateCode.trim().toUpperCase() ||
+      sellerForm.name
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .toUpperCase()
+        .slice(0, 8) ||
+      `SELLER${Math.floor(100 + Math.random() * 900)}`;
 
     if (editingSellerId) {
       updateSeller(editingSellerId, {
         name: sellerForm.name.trim(),
         email: sellerForm.email.trim(),
         phone: sellerForm.phone.trim(),
-        affiliateCode: sellerForm.affiliateCode.trim().toUpperCase(),
+        affiliateCode: finalAffiliateCode,
         pin: sellerPin,
         commissionRate: Number(sellerForm.commissionRate) / 100,
         promoDiscountPerBottle: 0,
@@ -384,7 +473,7 @@ export default function AdminPage() {
         name: sellerForm.name.trim(),
         email: sellerForm.email.trim(),
         phone: sellerForm.phone.trim(),
-        affiliateCode: sellerForm.affiliateCode.trim().toUpperCase(),
+        affiliateCode: finalAffiliateCode,
         pin: sellerPin,
         commissionRate: Number(sellerForm.commissionRate) / 100,
         promoDiscountPerBottle: 0,
@@ -395,7 +484,24 @@ export default function AdminPage() {
         },
       });
     }
+
     setSellerModalOpen(false);
+
+    // Tự động gửi Email & chuẩn bị tin nhắn SMS cho Seller ngay khi lưu
+    if (autoNotifySeller && (sellerForm.email.trim() || sellerForm.phone.trim())) {
+      handleSendSellerNotification(
+        {
+          name: sellerForm.name.trim(),
+          email: sellerForm.email.trim(),
+          phone: sellerForm.phone.trim(),
+          affiliateCode: finalAffiliateCode,
+          pin: sellerPin,
+          commissionRatePercent: Number(sellerForm.commissionRate),
+          commissionAmount: Math.round(product.price * (Number(sellerForm.commissionRate) / 100)),
+        },
+        true
+      );
+    }
   };
 
   const handleDeleteSeller = async (sellerId: string, sellerName: string) => {
@@ -1525,8 +1631,27 @@ export default function AdminPage() {
                             </button>
                             <button
                               type="button"
+                              onClick={() =>
+                                handleSendSellerNotification({
+                                  name: s.name,
+                                  email: s.email,
+                                  phone: s.phone,
+                                  affiliateCode: s.affiliateCode,
+                                  pin: s.pin || "123456",
+                                  commissionRatePercent: Math.round(s.commissionRate * 100),
+                                  commissionAmount: Math.round(product.price * s.commissionRate),
+                                })
+                              }
+                              className="p-1.5 rounded hover:bg-orange-50 text-zinc-600 hover:text-mewmao-orange"
+                              title="Gửi Email & Tin nhắn SMS/Zalo cho Seller"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleOpenEditSeller(s)}
                               className="p-1.5 rounded hover:bg-zinc-100 text-zinc-600"
+                              title="Chỉnh sửa thông tin"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
@@ -1534,6 +1659,7 @@ export default function AdminPage() {
                               type="button"
                               onClick={() => handleDeleteSeller(s.id, s.name)}
                               className="p-1.5 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600"
+                              title="Xóa Seller"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1691,6 +1817,24 @@ export default function AdminPage() {
                                 title="Xem dashboard chi tiết"
                               >
                                 Xem số liệu
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleSendSellerNotification({
+                                    name: s.name,
+                                    email: s.email,
+                                    phone: s.phone,
+                                    affiliateCode: s.affiliateCode,
+                                    pin: s.pin || "123456",
+                                    commissionRatePercent: Math.round(s.commissionRate * 100),
+                                    commissionAmount: Math.round(product.price * s.commissionRate),
+                                  })
+                                }
+                                className="p-1.5 rounded hover:bg-orange-50 text-zinc-600 hover:text-mewmao-orange"
+                                title="Gửi Email & Tin nhắn SMS/Zalo cho Seller"
+                              >
+                                <Send className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
@@ -2130,6 +2274,27 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                {/* TỰ ĐỘNG GỬI EMAIL & CHUẨN BỊ TIN NHẮN CHO SELLER */}
+                <div className="p-3.5 rounded-2xl bg-orange-50/70 border border-orange-200/90 space-y-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={autoNotifySeller}
+                      onChange={(e) => setAutoNotifySeller(e.target.checked)}
+                      className="w-4 h-4 rounded text-mewmao-orange accent-[#FF5E00] mt-0.5 cursor-pointer shrink-0"
+                    />
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#FF5E00]" />
+                        Tự động gửi Email & chuẩn bị tin nhắn SMS/Zalo cho Seller khi lưu
+                      </span>
+                      <p className="text-[11px] text-zinc-600 leading-relaxed">
+                        Hệ thống sẽ gửi email kích hoạt qua Resend tới địa chỉ email trên (chứa Tên, Mã Affiliate, Link 30 ngày, Mức hoa hồng và Mã PIN đăng nhập) và chuẩn bị sẵn tin nhắn để bạn gửi qua Zalo/SMS chỉ với 1 click.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
                 {/* Bank Info */}
                 <div className="pt-2 border-t border-zinc-100 space-y-2">
                   <span className="text-[10px] uppercase text-zinc-500 font-bold block">
@@ -2263,6 +2428,131 @@ export default function AdminPage() {
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>In Phiếu Này</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: KẾT QUẢ GỬI EMAIL & TÙY CHỌN GỬI ZALO / SMS ── */}
+      {notificationResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-3xl max-w-lg w-full max-h-[92dvh] overflow-y-auto p-5 sm:p-7 border border-zinc-200 shadow-2xl space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-zinc-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-50 text-mewmao-orange flex items-center justify-center border border-orange-200/80">
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-950">Thông Báo Kích Hoạt Seller</h3>
+                  <p className="text-xs text-zinc-500">
+                    Đại sứ: <strong className="text-zinc-900">{notificationResultModal.sellerName}</strong> ({notificationResultModal.affiliateCode})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotificationResultModal(null)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 1. Trạng thái Email */}
+            <div className="space-y-2">
+              <div className="text-[11px] uppercase tracking-wider font-bold text-zinc-500 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-zinc-400" />
+                <span>1. Trạng Thái Email (Resend)</span>
+              </div>
+              {notificationResultModal.email ? (
+                notificationResultModal.emailSent ? (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <strong className="font-bold">Đã gửi email thành công</strong> tới <span className="font-mono font-bold">{notificationResultModal.email}</span>!
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Thông báo gửi email:</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-800">
+                      {notificationResultModal.emailError || "Tài khoản Resend cần thêm & xác minh domain tại resend.com/domains để gửi đến tất cả người nhận. Hiện đang thử nghiệm (chỉ gửi tới www.junky3@yahoo.com)."}
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="p-3 rounded-2xl bg-zinc-50 border border-zinc-200 text-zinc-500 text-xs">
+                  Seller chưa có email. Bạn có thể gửi thông tin trực tiếp qua tin nhắn Zalo / SMS bên dưới.
+                </div>
+              )}
+            </div>
+
+            {/* 2. Mẫu Tin Nhắn SMS / Zalo Cho Seller */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] uppercase tracking-wider font-bold text-zinc-500 flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>2. Tin Nhắn SMS & Zalo Cho Seller</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(notificationResultModal.smsText);
+                    setCopiedSmsText(true);
+                    setTimeout(() => setCopiedSmsText(false), 2000);
+                  }}
+                  className="text-xs text-mewmao-orange font-bold hover:underline flex items-center gap-1"
+                >
+                  {copiedSmsText ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedSmsText ? "Đã sao chép!" : "Sao chép tin nhắn"}
+                </button>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 font-mono text-xs text-zinc-800 whitespace-pre-wrap leading-relaxed select-all">
+                {notificationResultModal.smsText}
+              </div>
+            </div>
+
+            {/* Action Buttons: Gửi Zalo / Gửi SMS / Xong */}
+            <div className="pt-2 border-t border-zinc-100 flex flex-wrap items-center justify-end gap-2">
+              {notificationResultModal.phone && (
+                <>
+                  <a
+                    href={`https://zalo.me/${notificationResultModal.phone.replace(/[^0-9]/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      navigator.clipboard.writeText(notificationResultModal.smsText);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#0068FF] text-white hover:bg-[#0055d4] text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-98 transition-all"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Mở Zalo ({notificationResultModal.phone})
+                  </a>
+
+                  {notificationResultModal.smsUri && (
+                    <a
+                      href={notificationResultModal.smsUri}
+                      className="px-4 py-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-800 text-xs font-bold flex items-center gap-1.5 transition-all"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      Gửi SMS
+                    </a>
+                  )}
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setNotificationResultModal(null)}
+                className="btn-mewmao-black px-5 py-2.5 text-xs font-bold"
+              >
+                Hoàn Tất
               </button>
             </div>
           </div>
