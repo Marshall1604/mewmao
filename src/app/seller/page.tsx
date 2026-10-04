@@ -389,39 +389,21 @@ export default function SellerPortalPage() {
           <main className="w-full px-3 sm:px-6 lg:px-8 xl:px-12 space-y-6 sm:space-y-8 pb-20">
             {/* ── BANNER LINK AFFILIATE (CỰC KỲ NỔI BẬT & NHỚ COOKIE 30 NGÀY) ────── */}
             <div className="w-full border border-orange-200/80 rounded-2xl p-4 sm:p-6 bg-gradient-to-br from-orange-50/80 via-white to-amber-50/50 shadow-xs space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-mewmao-orange" />
-                    <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-mewmao-orange font-bold">
-                      {isEn
-                        ? "Personal Affiliate Referral Link"
-                        : "ĐƯỜNG LINK GIỚI THIỆU AFFILIATE CÁ NHÂN"}
-                    </span>
-                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                      {isEn ? "✓ 30-Day Auto Cookie" : "✓ Cookie Tự Động 30 Ngày"}
-                    </span>
-                  </div>
-                  <h2 className="text-base sm:text-lg font-bold text-zinc-950">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-mewmao-orange" />
+                  <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-mewmao-orange font-bold">
                     {isEn
-                      ? `Share your link to earn ${Math.round(currentSeller.commissionRate * 100)}% commission (${formatPrice(Math.round(289000 * currentSeller.commissionRate))} / bottle)`
-                      : `Chia sẻ link để nhận hoa hồng ${Math.round(currentSeller.commissionRate * 100)}% (${formatPrice(Math.round(289000 * currentSeller.commissionRate))} / chai)`}
-                  </h2>
-                  <p className="text-xs text-zinc-600 font-light leading-relaxed max-w-3xl">
-                    {isEn ? (
-                      <>
-                        When customers visit through your link, their browser saves a cookie for <strong>30 days</strong>. Whenever they order Mewmao 500ml at regular price ({formatPrice(289000)}), the system automatically records your sale and credits commission to your balance.
-                      </>
-                    ) : (
-                      <>
-                        Khi khách hàng bấm vào đường link của bạn, trình duyệt sẽ lưu cookie trong <strong>30 ngày</strong>. Khách mua chai rượu Mewmao 500ml đúng giá niêm yết ({formatPrice(289000)}), hệ thống tự động ghi nhận doanh số và cộng hoa hồng trực tiếp vào tài khoản của bạn.
-                      </>
-                    )}
-                  </p>
+                      ? "Personal Affiliate Referral Link"
+                      : "ĐƯỜNG LINK GIỚI THIỆU AFFILIATE CÁ NHÂN"}
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.5 rounded-full">
+                    {isEn ? "✓ 30-Day Auto Cookie" : "✓ Cookie Tự Động 30 Ngày"}
+                  </span>
                 </div>
 
                 {/* QR / Stats Quick badge */}
-                <div className="shrink-0 flex items-center gap-2 self-start md:self-center">
+                <div className="shrink-0 flex items-center gap-2 self-start sm:self-center">
                   <span className="px-3 py-1.5 rounded-xl bg-white border border-orange-200 text-xs font-mono font-bold text-zinc-800 shadow-xs">
                     {isEn ? "Security PIN: " : "Mã PIN: "}
                     <strong className="text-mewmao-orange">{currentSeller.pin || "123456"}</strong>
