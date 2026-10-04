@@ -60,12 +60,39 @@ create table if not exists public.payouts (
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 4. BẬT ROW LEVEL SECURITY (RLS)
+-- 4. BẢNG VOUCHERS (Mã Giảm Giá Khuyến Mãi)
+create table if not exists public.vouchers (
+  id text primary key,
+  code text unique not null,
+  name text not null,
+  discount_type text not null default 'fixed',
+  discount_value numeric not null default 0,
+  start_date text,
+  end_date text,
+  min_order_value numeric default 0,
+  usage_limit integer,
+  used_count integer default 0,
+  status text not null default 'active',
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- 5. BẬT ROW LEVEL SECURITY (RLS)
 alter table public.sellers enable row level security;
 alter table public.orders enable row level security;
 alter table public.payouts enable row level security;
+alter table public.vouchers enable row level security;
 
 -- Xóa policy cũ nếu chạy lại (tránh lỗi duplicate policy)
+drop policy if exists "Allow public read vouchers" on public.vouchers;
+drop policy if exists "Allow public insert vouchers" on public.vouchers;
+drop policy if exists "Allow public update vouchers" on public.vouchers;
+drop policy if exists "Allow public delete vouchers" on public.vouchers;
+
+create policy "Allow public read vouchers" on public.vouchers for select using (true);
+create policy "Allow public insert vouchers" on public.vouchers for insert with check (true);
+create policy "Allow public update vouchers" on public.vouchers for update using (true);
+create policy "Allow public delete vouchers" on public.vouchers for delete using (true);
+
 drop policy if exists "Allow public read sellers" on public.sellers;
 drop policy if exists "Allow public insert sellers" on public.sellers;
 drop policy if exists "Allow public update sellers" on public.sellers;

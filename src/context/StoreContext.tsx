@@ -248,6 +248,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Tự động kéo voucher mới nhất từ server/Supabase ngay khi khởi động
+    fetch("/api/vouchers")
+      .then((r) => r.json())
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setVouchers(res.data);
+          localStorage.setItem("mewmao_vouchers", JSON.stringify(res.data));
+        }
+      })
+      .catch(() => {});
+
     // ── XỬ LÝ LINK GIỚI THIỆU (?ref=...) & COOKIE 30 NGÀY ──
     // Lưu vô điều kiện ngay lập tức khi phát hiện ?ref=... trên URL (không phụ thuộc vào sellers state)
     const urlParams = new URLSearchParams(window.location.search);
@@ -418,6 +429,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }));
         setPayouts(mappedPayouts);
       }
+
+      // 4. Fetch Vouchers (tự động đồng bộ liên tục giữa các thiết bị)
+      try {
+        const vRes = await fetch("/api/vouchers");
+        if (vRes.ok) {
+          const vJson = await vRes.json();
+          if (Array.isArray(vJson.data) && vJson.data.length > 0) {
+            setVouchers(vJson.data);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("mewmao_vouchers", JSON.stringify(vJson.data));
+            }
+          }
+        }
+      } catch (vErr) {
+        console.warn("API vouchers refresh error:", vErr);
+      }
     } catch (err) {
       console.warn("Supabase refreshData error:", err);
     }
@@ -552,49 +579,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString().split("T")[0],
     };
 
+    let updatedList: Voucher[] = [];
     setVouchers((prev) => {
-      const updated = [newVoucher, ...prev];
+      updatedList = [newVoucher, ...prev];
       if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_vouchers", JSON.stringify(updated));
+        localStorage.setItem("mewmao_vouchers", JSON.stringify(updatedList));
       }
-      return updated;
+      return updatedList;
     });
 
     fetch("/api/vouchers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newVoucher),
+      body: JSON.stringify({ vouchers: updatedList }),
     }).catch(() => {});
 
     return newVoucher;
   };
 
   const updateVoucher = (id: string, updates: Partial<Voucher>) => {
+    let updatedList: Voucher[] = [];
     setVouchers((prev) => {
-      const updated = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
+      updatedList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
       if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_vouchers", JSON.stringify(updated));
+        localStorage.setItem("mewmao_vouchers", JSON.stringify(updatedList));
       }
-      return updated;
+      return updatedList;
     });
 
     fetch("/api/vouchers", {
-      method: "PATCH",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, updates }),
+      body: JSON.stringify({ vouchers: updatedList }),
     }).catch(() => {});
   };
 
   const deleteVoucher = async (id: string): Promise<boolean> => {
+    let updatedList: Voucher[] = [];
     setVouchers((prev) => {
-      const updated = prev.filter((v) => v.id !== id);
+      updatedList = prev.filter((v) => v.id !== id);
       if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_vouchers", JSON.stringify(updated));
+        localStorage.setItem("mewmao_vouchers", JSON.stringify(updatedList));
       }
-      return updated;
+      return updatedList;
     });
 
     try {
+      await fetch("/api/vouchers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vouchers: updatedList }),
+      });
       await fetch(`/api/vouchers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     } catch {}
     return true;
