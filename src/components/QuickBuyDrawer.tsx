@@ -7,7 +7,6 @@ import {
   Minus,
   Plus,
   CheckCircle2,
-  Sparkles,
   ShieldCheck,
   ArrowRight,
 } from "lucide-react";
@@ -21,7 +20,6 @@ export default function QuickBuyDrawer() {
     setIsQuickBuyOpen,
     activeRefCode,
     setActiveRefCode,
-    sellers,
     placeOrder,
     t,
     language,
@@ -44,14 +42,6 @@ export default function QuickBuyDrawer() {
 
   if (!isQuickBuyOpen) return null;
 
-  // Xác định mã affiliate hiệu lực & Seller tương ứng
-  const effectiveRefCode =
-    manualRefCode.trim().toUpperCase() || (activeRefCode || "").trim().toUpperCase();
-  const matchedSeller = effectiveRefCode
-    ? sellers.find(
-        (s) => s.affiliateCode && s.affiliateCode.trim().toUpperCase() === effectiveRefCode
-      )
-    : null;
   const subtotal = product.price * cartQuantity;
   const totalAmount = subtotal; // Bỏ giảm giá: mua đúng giá niêm yết 289.000₫/chai
 
@@ -170,7 +160,7 @@ export default function QuickBuyDrawer() {
                   <div className="flex justify-between pb-2 border-b border-zinc-100">
                     <span className="text-zinc-500">{isEn ? "Ambassador Code:" : "Mã giới thiệu:"}</span>
                     <strong className="text-mewmao-orange font-mono font-bold">
-                      {confirmedOrder.affiliateCode} (Đã ghi nhận hoa hồng)
+                      {confirmedOrder.affiliateCode}
                     </strong>
                   </div>
                 )}
@@ -251,18 +241,11 @@ export default function QuickBuyDrawer() {
                   </div>
                 </div>
 
-                {/* ── MÃ AFFILIATE & LINK GIỚI THIỆU (COOKIE 30 NGÀY) ── */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 font-bold">
-                      {isEn ? "Ambassador / Referral Code" : "Mã Đại Sứ Giới Thiệu (Nếu có)"}
-                    </label>
-                    {activeRefCode && (
-                      <span className="text-[9px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {isEn ? "Cookie 30 Days Active" : "Cookie 30 ngày đang lưu"}
-                      </span>
-                    )}
-                  </div>
+                {/* ── MÃ AFFILIATE GIỚI THIỆU (NẾU CÓ) ── */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 font-bold block">
+                    {isEn ? "Ambassador / Referral Code (Optional)" : "Mã Đại Sứ Giới Thiệu (Nếu có)"}
+                  </label>
 
                   <div className="relative">
                     <input
@@ -292,37 +275,6 @@ export default function QuickBuyDrawer() {
                       </button>
                     )}
                   </div>
-
-                  {/* Real-time Recognition Badge */}
-                  {matchedSeller ? (
-                    <div className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 animate-fade-in">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <div>
-                          <span className="font-bold text-[11px] block text-emerald-950">
-                            {isEn ? `Ambassador: ${matchedSeller.name}` : `Đại sứ: ${matchedSeller.name}`}
-                          </span>
-                          <span className="text-[10px] text-emerald-700 font-mono">
-                            {isEn
-                              ? `Code: ${matchedSeller.affiliateCode} • Commission credited: ${Math.round(matchedSeller.commissionRate * 100)}%`
-                              : `Mã: ${matchedSeller.affiliateCode} • Hoa hồng trích: ${Math.round(matchedSeller.commissionRate * 100)}%`}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
-                        {isEn ? "✓ Verified" : "✓ Đã nhận diện"}
-                      </span>
-                    </div>
-                  ) : effectiveRefCode ? (
-                    <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl bg-orange-50/80 border border-orange-200/80 text-zinc-800 animate-fade-in">
-                      <Sparkles className="w-3.5 h-3.5 text-mewmao-orange shrink-0" />
-                      <span className="text-[11px] text-zinc-700 font-mono">
-                        {isEn
-                          ? `Code "${effectiveRefCode}" will be credited to Ambassador upon order completion.`
-                          : `Mã "${effectiveRefCode}" sẽ được ghi nhận tính hoa hồng khi bạn đặt hàng.`}
-                      </span>
-                    </div>
-                  ) : null}
                 </div>
 
                 {/* Customer Info */}
