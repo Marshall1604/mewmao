@@ -1841,75 +1841,84 @@ export default function AdminPage() {
       {/* ========================================================================= */}
       {/* ── MODAL: TẠO / SỬA SELLER ──                                             */}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* ── MODAL: TẠO / SỬA SELLER (TỐI ƯU 100% CHO MOBILE & DESKTOP) ──           */}
+      {/* ========================================================================= */}
       {sellerModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-zinc-200 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-              <h3 className="text-lg font-bold text-zinc-950">
-                {editingSellerId ? "Chỉnh Sửa Thông Tin Seller" : "Tạo Mới Seller & Cấp Mã Affiliate"}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-t-[28px] sm:rounded-3xl max-w-lg w-full max-h-[92dvh] sm:max-h-[90vh] flex flex-col border border-zinc-200 shadow-2xl overflow-hidden">
+            {/* 1. Sticky Header */}
+            <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-5 sm:px-7 py-3.5 sm:py-4 border-b border-zinc-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-mewmao-orange" />
+                <h3 className="text-base sm:text-lg font-bold text-zinc-950">
+                  {editingSellerId ? "Chỉnh Sửa Thông Tin Seller" : "Tạo Mới Seller & Cấp Mã Affiliate"}
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setSellerModalOpen(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-zinc-950 hover:bg-zinc-100"
+                className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-950 flex items-center justify-center transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSeller} className="space-y-4 text-xs font-sans">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold block">Họ và Tên Seller *</label>
-                  <input
-                    type="text"
-                    required
-                    value={sellerForm.name}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      if (!editingSellerId && !sellerForm.affiliateCode) {
-                        const clean = name
-                          .normalize("NFD")
-                          .replace(/[\u0300-\u036f]/g, "")
-                          .replace(/[^a-zA-Z0-9]/g, "")
-                          .toUpperCase()
-                          .slice(0, 8);
-                        setSellerForm((prev) => ({ ...prev, name, affiliateCode: clean }));
-                      } else {
-                        setSellerForm((prev) => ({ ...prev, name }));
-                      }
-                    }}
-                    placeholder="VD: Nguyễn Hải Đăng"
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs"
-                  />
+            {/* 2. Scrollable Form Body */}
+            <form onSubmit={handleSaveSeller} className="flex flex-col flex-1 overflow-hidden">
+              <div className="overflow-y-auto px-5 sm:px-7 py-4 sm:py-5 space-y-4 text-xs font-sans flex-1 overscroll-contain">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-zinc-500 font-bold block">Họ và Tên Seller *</label>
+                    <input
+                      type="text"
+                      required
+                      value={sellerForm.name}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        if (!editingSellerId && !sellerForm.affiliateCode) {
+                          const clean = name
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[^a-zA-Z0-9]/g, "")
+                            .toUpperCase()
+                            .slice(0, 8);
+                          setSellerForm((prev) => ({ ...prev, name, affiliateCode: clean }));
+                        } else {
+                          setSellerForm((prev) => ({ ...prev, name }));
+                        }
+                      }}
+                      placeholder="VD: Nguyễn Hải Đăng"
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-zinc-500 font-bold block">Mã Affiliate Riêng *</label>
+                    <input
+                      type="text"
+                      required
+                      value={sellerForm.affiliateCode}
+                      onChange={(e) => setSellerForm({ ...sellerForm, affiliateCode: e.target.value.toUpperCase() })}
+                      placeholder="VD: HAIDANG"
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs sm:text-sm uppercase font-mono font-bold text-mewmao-orange"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold block">Mã Affiliate Riêng *</label>
-                  <input
-                    type="text"
-                    required
-                    value={sellerForm.affiliateCode}
-                    onChange={(e) => setSellerForm({ ...sellerForm, affiliateCode: e.target.value.toUpperCase() })}
-                    placeholder="VD: HAIDANG"
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs uppercase font-mono font-bold text-mewmao-orange"
-                  />
-                </div>
-              </div>
-
-              {/* Đường Link Giới Thiệu (Cookie 30 Ngày) & % Hoa Hồng */}
-              <div className="p-4 rounded-2xl bg-orange-50/70 border border-orange-200/80 space-y-3">
+                {/* Đường Link Giới Thiệu (Cookie 30 Ngày) & % Hoa Hồng */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-orange-50/70 border border-orange-200/80 space-y-3">
                   <div>
-                    <label className="text-[10px] uppercase text-amber-950 font-bold block">
+                    <label className="text-[10px] uppercase text-amber-950 font-bold block tracking-wider">
                       Đường Link Giới Thiệu (Cookie Nhận Diện 30 Ngày)
                     </label>
                   </div>
 
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-orange-200 text-xs font-mono">
-                    <span className="text-zinc-600 truncate flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-xl bg-white border border-orange-200 text-xs font-mono">
+                    <span className="text-zinc-600 break-all select-all flex-1 text-[11px] sm:text-xs">
                       {typeof window !== "undefined" ? window.location.origin : "https://mewmao.com"}
                       /?ref=
-                      <strong className="text-mewmao-orange">{sellerForm.affiliateCode || "MA_SELLER"}</strong>
+                      <strong className="text-mewmao-orange font-bold font-mono">{sellerForm.affiliateCode || "MA_SELLER"}</strong>
                     </span>
                     <button
                       type="button"
@@ -1918,172 +1927,175 @@ export default function AdminPage() {
                         navigator.clipboard.writeText(link);
                         alert("Đã sao chép đường link affiliate của Seller!");
                       }}
-                      className="px-3 py-1 rounded-lg bg-zinc-900 hover:bg-black text-white text-[11px] font-sans font-bold shrink-0 transition-colors"
+                      className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-black text-white text-[11px] font-sans font-bold shrink-0 transition-colors flex items-center justify-center gap-1.5 active:scale-95"
                     >
-                      Copy Link
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Link</span>
                     </button>
                   </div>
 
-                {/* Thiết lập hoa hồng 2 chiều: % ⇄ VNĐ */}
-                <div className="pt-2.5 border-t border-orange-200/60 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] uppercase text-amber-950 font-bold block">
-                      Mức Hoa Hồng Trích Cho Seller *
-                    </label>
-                    <span className="text-[10px] font-mono text-zinc-600 bg-white border border-orange-200/80 px-2 py-0.5 rounded-md shrink-0 shadow-2xs">
-                      Giá niêm yết: <strong className="text-zinc-950">{product.price.toLocaleString("vi-VN")}₫</strong>/chai
+                  {/* Thiết lập hoa hồng 2 chiều: % ⇄ VNĐ */}
+                  <div className="pt-2.5 border-t border-orange-200/60 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <label className="text-[10px] uppercase text-amber-950 font-bold block">
+                        Mức Hoa Hồng Trích Cho Seller *
+                      </label>
+                      <span className="text-[10px] font-mono text-zinc-600 bg-white border border-orange-200/80 px-2 py-0.5 rounded-md shrink-0 shadow-2xs">
+                        Giá niêm yết: <strong className="text-zinc-950">{product.price.toLocaleString("vi-VN")}₫</strong>/chai
+                      </span>
+                    </div>
+
+                    {/* 2 ô nhập liệu đối chiếu song song */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {/* Ô 1: Tỷ lệ phần trăm % */}
+                      <div className="p-2 rounded-xl bg-white border border-orange-200/90 shadow-2xs space-y-1">
+                        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
+                          Tỷ Lệ Phần Trăm (%)
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min={0}
+                            max={100}
+                            value={sellerForm.commissionRate === 0 && commissionAmountInput === "" ? "" : sellerForm.commissionRate}
+                            onChange={(e) => handleCommissionPercentChange(e.target.value)}
+                            placeholder="15"
+                            className="w-full px-2 py-1 rounded-lg bg-orange-50/40 text-xs sm:text-sm font-bold text-zinc-950 font-mono focus:outline-none focus:bg-orange-50 focus:ring-1 focus:ring-orange-300"
+                          />
+                          <span className="text-xs font-bold text-mewmao-orange font-mono px-1">%</span>
+                        </div>
+                      </div>
+
+                      {/* Ô 2: Tiền VNĐ tương đương mỗi chai */}
+                      <div className="p-2 rounded-xl bg-white border border-orange-200/90 shadow-2xs space-y-1">
+                        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
+                          Tiền Nhận / Chai (VNĐ)
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={commissionAmountInput}
+                            onChange={(e) => handleCommissionAmountChange(e.target.value)}
+                            placeholder="43.350"
+                            className="w-full px-2 py-1 rounded-lg bg-orange-50/40 text-xs sm:text-sm font-bold text-zinc-950 font-mono focus:outline-none focus:bg-orange-50 focus:ring-1 focus:ring-orange-300"
+                          />
+                          <span className="text-xs font-bold text-zinc-600 font-mono px-1">₫</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gợi ý quy đổi nhanh (Nút bấm 1-chạm) - Tối ưu 4 ô trên 1 hàng chuẩn */}
+                    <div className="space-y-1 pt-0.5">
+                      <span className="text-zinc-500 text-[10px] block">Gợi ý mức nhanh:</span>
+                      <div className="grid grid-cols-4 gap-1.5 font-mono text-[10px]">
+                        {[10, 15, 20, 25].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => handleCommissionPercentChange(pct.toString())}
+                            className={`py-1 rounded-lg border text-center transition-colors ${
+                              Math.round(sellerForm.commissionRate) === pct
+                                ? "bg-zinc-900 text-white font-bold border-zinc-900 shadow-2xs"
+                                : "bg-white text-zinc-600 border-zinc-200 hover:border-orange-300 hover:text-zinc-900"
+                            }`}
+                          >
+                            {pct}% ({Math.round(product.price * (pct / 100) / 1000)}k)
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mã PIN Đăng Nhập Riêng Cho Seller (/seller) */}
+                <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
+                  <label className="text-[10px] uppercase text-zinc-950 font-bold block">
+                    Mã PIN Đăng Nhập Của Seller (/seller) *
+                  </label>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={sellerForm.pin}
+                      onChange={(e) => setSellerForm({ ...sellerForm, pin: e.target.value.replace(/\D/g, "") })}
+                      placeholder="VD: 123456"
+                      className="w-32 px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-sm font-mono font-bold tracking-widest text-center bg-white"
+                    />
+                    <span className="text-[11px] text-zinc-500 font-mono">
+                      (6 chữ số)
                     </span>
                   </div>
+                </div>
 
-                  {/* 2 ô nhập liệu đối chiếu song song */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {/* Ô 1: Tỷ lệ phần trăm % */}
-                    <div className="p-2 rounded-xl bg-white border border-orange-200/90 shadow-2xs space-y-1">
-                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
-                        Tỷ Lệ Phần Trăm (%)
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          step="0.1"
-                          min={0}
-                          max={100}
-                          value={sellerForm.commissionRate === 0 && commissionAmountInput === "" ? "" : sellerForm.commissionRate}
-                          onChange={(e) => handleCommissionPercentChange(e.target.value)}
-                          placeholder="15"
-                          className="w-full px-2 py-1 rounded-lg bg-orange-50/40 text-xs font-bold text-zinc-950 font-mono focus:outline-none focus:bg-orange-50 focus:ring-1 focus:ring-orange-300"
-                        />
-                        <span className="text-xs font-bold text-mewmao-orange font-mono px-1">%</span>
-                      </div>
-                    </div>
-
-                    {/* Ô 2: Tiền VNĐ tương đương mỗi chai */}
-                    <div className="p-2 rounded-xl bg-white border border-orange-200/90 shadow-2xs space-y-1">
-                      <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold block">
-                        Tiền Nhận / Chai (VNĐ)
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          value={commissionAmountInput}
-                          onChange={(e) => handleCommissionAmountChange(e.target.value)}
-                          placeholder="43.350"
-                          className="w-full px-2 py-1 rounded-lg bg-orange-50/40 text-xs font-bold text-zinc-950 font-mono focus:outline-none focus:bg-orange-50 focus:ring-1 focus:ring-orange-300"
-                        />
-                        <span className="text-xs font-bold text-zinc-600 font-mono px-1">₫</span>
-                      </div>
-                    </div>
+                {/* Contact */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-zinc-500 font-bold block">Số Điện Thoại</label>
+                    <input
+                      type="tel"
+                      value={sellerForm.phone}
+                      onChange={(e) => setSellerForm({ ...sellerForm, phone: e.target.value })}
+                      placeholder="0988..."
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs sm:text-sm"
+                    />
                   </div>
-
-                  {/* Gợi ý quy đổi nhanh (Nút bấm 1-chạm) */}
-                  <div className="flex items-center justify-between text-[11px] pt-0.5">
-                    <span className="text-zinc-500 text-[10px]">Gợi ý mức nhanh:</span>
-                    <div className="flex items-center gap-1 font-mono text-[10px]">
-                      {[10, 15, 20, 25].map((pct) => (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() => handleCommissionPercentChange(pct.toString())}
-                          className={`px-2 py-0.5 rounded-md border transition-colors ${
-                            Math.round(sellerForm.commissionRate) === pct
-                              ? "bg-zinc-900 text-white font-bold border-zinc-900 shadow-2xs"
-                              : "bg-white text-zinc-600 border-zinc-200 hover:border-orange-300 hover:text-zinc-900"
-                          }`}
-                        >
-                          {pct}% ({Math.round(product.price * (pct / 100) / 1000)}k)
-                        </button>
-                      ))}
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase text-zinc-500 font-bold block">Email</label>
+                    <input
+                      type="email"
+                      value={sellerForm.email}
+                      onChange={(e) => setSellerForm({ ...sellerForm, email: e.target.value })}
+                      placeholder="seller@mewmao.vn"
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs sm:text-sm"
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* Mã PIN Đăng Nhập Riêng Cho Seller (/seller) */}
-              <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 space-y-2">
-                <label className="text-[10px] uppercase text-zinc-950 font-bold block">
-                  Mã PIN Đăng Nhập Của Seller (/seller) *
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={sellerForm.pin}
-                    onChange={(e) => setSellerForm({ ...sellerForm, pin: e.target.value.replace(/\D/g, "") })}
-                    placeholder="VD: 123456"
-                    className="w-32 px-3 py-1.5 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-sm font-mono font-bold tracking-widest text-center bg-white"
-                  />
-                  <span className="text-[11px] text-zinc-500 font-mono">
-                    (6 chữ số)
+                {/* Bank Info */}
+                <div className="pt-2 border-t border-zinc-100 space-y-2">
+                  <span className="text-[10px] uppercase text-zinc-500 font-bold block">
+                    Tài Khoản Nhận Hoa Hồng (Ngân Hàng)
                   </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input
+                      type="text"
+                      value={sellerForm.bankName}
+                      onChange={(e) => setSellerForm({ ...sellerForm, bankName: e.target.value })}
+                      placeholder="Tên ngân hàng"
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-xs sm:text-sm focus:outline-none focus:border-zinc-950"
+                    />
+                    <input
+                      type="text"
+                      value={sellerForm.accountNumber}
+                      onChange={(e) => setSellerForm({ ...sellerForm, accountNumber: e.target.value })}
+                      placeholder="Số tài khoản"
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-xs sm:text-sm font-mono focus:outline-none focus:border-zinc-950"
+                    />
+                    <input
+                      type="text"
+                      value={sellerForm.accountHolder}
+                      onChange={(e) => setSellerForm({ ...sellerForm, accountHolder: e.target.value.toUpperCase() })}
+                      placeholder="Chủ tài khoản"
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-xs sm:text-sm uppercase font-mono focus:outline-none focus:border-zinc-950"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Contact */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold block">Số Điện Thoại</label>
-                  <input
-                    type="tel"
-                    value={sellerForm.phone}
-                    onChange={(e) => setSellerForm({ ...sellerForm, phone: e.target.value })}
-                    placeholder="0988..."
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase text-zinc-500 font-bold block">Email</label>
-                  <input
-                    type="email"
-                    value={sellerForm.email}
-                    onChange={(e) => setSellerForm({ ...sellerForm, email: e.target.value })}
-                    placeholder="seller@mewmao.vn"
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Bank Info */}
-              <div className="pt-2 border-t border-zinc-100 space-y-2">
-                <span className="text-[10px] uppercase text-zinc-400 font-bold block">
-                  Tài Khoản Nhận Hoa Hồng (Ngân Hàng)
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <input
-                    type="text"
-                    value={sellerForm.bankName}
-                    onChange={(e) => setSellerForm({ ...sellerForm, bankName: e.target.value })}
-                    placeholder="Tên ngân hàng"
-                    className="px-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-zinc-950"
-                  />
-                  <input
-                    type="text"
-                    value={sellerForm.accountNumber}
-                    onChange={(e) => setSellerForm({ ...sellerForm, accountNumber: e.target.value })}
-                    placeholder="Số tài khoản"
-                    className="px-3 py-2 rounded-xl border border-zinc-200 text-xs font-mono focus:outline-none focus:border-zinc-950"
-                  />
-                  <input
-                    type="text"
-                    value={sellerForm.accountHolder}
-                    onChange={(e) => setSellerForm({ ...sellerForm, accountHolder: e.target.value.toUpperCase() })}
-                    placeholder="Chủ tài khoản"
-                    className="px-3 py-2 rounded-xl border border-zinc-200 text-xs uppercase font-mono focus:outline-none focus:border-zinc-950"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-2 border-t border-zinc-100">
+              {/* 3. Sticky Footer Action Buttons */}
+              <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-md px-5 sm:px-7 py-3.5 sm:py-4 border-t border-zinc-100 flex items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setSellerModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50 font-medium"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-medium text-xs transition-colors"
                 >
                   Hủy Bỏ
                 </button>
                 <button
                   type="submit"
-                  className="btn-mewmao-black px-6 py-2 text-xs font-bold"
+                  className="flex-1 sm:flex-initial btn-mewmao-black justify-center px-6 py-2.5 text-xs font-bold shadow-md hover:scale-[1.02] active:scale-98 transition-all"
                 >
                   {editingSellerId ? "Lưu Thay Đổi" : "Tạo Seller Ngay"}
                 </button>
@@ -2097,8 +2109,8 @@ export default function AdminPage() {
       {/* ── MODAL: IN PHIẾU GỬI HÀNG (PRINT PACKING SLIP) ──                      */}
       {/* ========================================================================= */}
       {printingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 border border-zinc-200 shadow-2xl space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[92dvh] overflow-y-auto p-5 sm:p-8 border border-zinc-200 shadow-2xl space-y-6">
             
             <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
               <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-400">
