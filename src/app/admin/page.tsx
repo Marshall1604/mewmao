@@ -1276,74 +1276,113 @@ export default function AdminPage() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                      <div>
-                        <span className="text-zinc-400 block text-[11px]">Mã Affiliate</span>
-                        <strong className="text-sm font-mono text-mewmao-orange">{viewingSeller.affiliateCode}</strong>
-                      </div>
-                      <div>
-                        <span className="text-zinc-400 block text-[11px]">Link Giới Thiệu (Cookie 30 Ngày)</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopySellerLink(viewingSeller.affiliateCode, viewingSeller.id)}
-                          className="inline-flex items-center gap-1.5 text-xs text-mewmao-orange hover:underline font-bold mt-0.5"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>{copiedSellerId === viewingSeller.id ? "Đã sao chép link!" : "Copy Link Affiliate"}</span>
-                        </button>
-                      </div>
-                      <div>
-                        <span className="text-zinc-400 block text-[11px]">Số Chai Đã Bán</span>
-                        <strong className="text-sm text-zinc-950">{viewingSeller.bottlesSoldCount || 0} chai</strong>
-                      </div>
-                      <div>
-                        <span className="text-zinc-400 block text-[11px]">Số Dư Khả Dụng</span>
-                        <strong className="text-sm text-zinc-950 font-mono">{viewingSeller.balance.toLocaleString("vi-VN")}₫</strong>
-                      </div>
-                    </div>
+                    {(() => {
+                      const viewingOrders = orders.filter(
+                        (o) => o.affiliateCode && o.affiliateCode.trim().toUpperCase() === viewingSeller.affiliateCode.trim().toUpperCase()
+                      );
+                      const viewingBottles = Math.max(
+                        viewingSeller.bottlesSoldCount || 0,
+                        viewingOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
+                      );
+                      const viewingCommission = Math.max(
+                        viewingSeller.totalEarned || 0,
+                        viewingOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
+                      );
+                      const viewingBalance = Math.max(
+                        viewingSeller.balance || 0,
+                        viewingCommission - (viewingSeller.totalWithdrawn || 0)
+                      );
 
-                    {/* Orders of this seller */}
-                    <div className="pt-2">
-                      <h4 className="text-xs font-bold text-zinc-900 mb-2">Đơn Hàng Phát Sinh Qua Mã Này:</h4>
-                      <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
-                              <th className="py-2.5 px-3">Mã Đơn</th>
-                              <th className="py-2.5 px-3">Ngày</th>
-                              <th className="py-2.5 px-3">Khách Hàng</th>
-                              <th className="py-2.5 px-3">Số Chai</th>
-                              <th className="py-2.5 px-3">Tổng Tiền</th>
-                              <th className="py-2.5 px-3">Hoa Hồng Trích</th>
-                              <th className="py-2.5 px-3">Trạng Thái</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-100">
-                            {orders.filter((o) => o.affiliateCode?.toLowerCase() === viewingSeller.affiliateCode.toLowerCase()).length === 0 ? (
-                              <tr>
-                                <td colSpan={7} className="py-4 text-center text-zinc-400 text-xs">
-                                  Chưa có đơn hàng nào qua mã này.
-                                </td>
-                              </tr>
-                            ) : (
-                              orders
-                                .filter((o) => o.affiliateCode?.toLowerCase() === viewingSeller.affiliateCode.toLowerCase())
-                                .map((ord) => (
-                                  <tr key={ord.id} className="hover:bg-zinc-50">
-                                    <td className="py-2.5 px-3 font-mono font-bold">{ord.id}</td>
-                                    <td className="py-2.5 px-3 text-zinc-500 text-[11px]">{ord.createdAt}</td>
-                                    <td className="py-2.5 px-3">{ord.customerName}</td>
-                                    <td className="py-2.5 px-3 font-bold">{ord.items.reduce((s, i) => s + i.quantity, 0)} chai</td>
-                                    <td className="py-2.5 px-3 font-bold">{ord.totalAmount.toLocaleString("vi-VN")}₫</td>
-                                    <td className="py-2.5 px-3 font-bold text-emerald-600">+{ord.sellerCommission.toLocaleString("vi-VN")}₫</td>
-                                    <td className="py-2.5 px-3">{ord.status}</td>
+                      return (
+                        <>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                            <div>
+                              <span className="text-zinc-400 block text-[11px]">Mã Affiliate</span>
+                              <strong className="text-sm font-mono text-mewmao-orange">{viewingSeller.affiliateCode}</strong>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 block text-[11px]">Link Giới Thiệu (Cookie 30 Ngày)</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopySellerLink(viewingSeller.affiliateCode, viewingSeller.id)}
+                                className="inline-flex items-center gap-1.5 text-xs text-mewmao-orange hover:underline font-bold mt-0.5"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>{copiedSellerId === viewingSeller.id ? "Đã sao chép link!" : "Copy Link Affiliate"}</span>
+                              </button>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 block text-[11px]">Số Chai Đã Bán</span>
+                              <strong className="text-sm text-zinc-950">{viewingBottles} chai</strong>
+                              <span className="text-[10px] text-zinc-400 block font-mono">({viewingOrders.length} đơn phát sinh)</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-400 block text-[11px]">Số Dư Khả Dụng</span>
+                              <strong className="text-sm text-mewmao-orange font-mono">{viewingBalance.toLocaleString("vi-VN")}₫</strong>
+                              <span className="text-[10px] text-zinc-400 block font-mono">Tổng tích lũy: {viewingCommission.toLocaleString("vi-VN")}₫</span>
+                            </div>
+                          </div>
+
+                          {/* Orders of this seller */}
+                          <div className="pt-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-bold text-zinc-900">
+                                Đơn Hàng Phát Sinh Qua Mã Này ({viewingOrders.length} đơn):
+                              </h4>
+                              <span className="text-[10px] text-emerald-600 font-mono font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                ✓ Nhận diện tự động qua Link & Mã Affiliate
+                              </span>
+                            </div>
+                            <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white">
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-zinc-50 text-[10px] uppercase text-zinc-500 border-b border-zinc-200">
+                                    <th className="py-2.5 px-3">Mã Đơn</th>
+                                    <th className="py-2.5 px-3">Ngày</th>
+                                    <th className="py-2.5 px-3">Khách Hàng</th>
+                                    <th className="py-2.5 px-3">Số Chai</th>
+                                    <th className="py-2.5 px-3">Tổng Tiền</th>
+                                    <th className="py-2.5 px-3">Hoa Hồng Trích</th>
+                                    <th className="py-2.5 px-3">Trạng Thái</th>
                                   </tr>
-                                ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100">
+                                  {viewingOrders.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={7} className="py-4 text-center text-zinc-400 text-xs">
+                                        Chưa có đơn hàng nào phát sinh qua mã này.
+                                      </td>
+                                    </tr>
+                                  ) : (
+                                    viewingOrders.map((ord) => (
+                                      <tr key={ord.id} className="hover:bg-zinc-50">
+                                        <td className="py-2.5 px-3 font-mono font-bold">{ord.id}</td>
+                                        <td className="py-2.5 px-3 text-zinc-500 text-[11px]">{ord.createdAt}</td>
+                                        <td className="py-2.5 px-3 font-medium text-zinc-950">{ord.customerName}</td>
+                                        <td className="py-2.5 px-3 font-bold">{ord.items.reduce((s, i) => s + i.quantity, 0)} chai</td>
+                                        <td className="py-2.5 px-3 font-bold">{ord.totalAmount.toLocaleString("vi-VN")}₫</td>
+                                        <td className="py-2.5 px-3 font-bold text-emerald-600 font-mono">+{ord.sellerCommission.toLocaleString("vi-VN")}₫</td>
+                                        <td className="py-2.5 px-3">
+                                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                            ord.status === "delivered"
+                                              ? "bg-emerald-50 text-emerald-700"
+                                              : ord.status === "shipping"
+                                              ? "bg-blue-50 text-blue-700"
+                                              : "bg-amber-50 text-amber-700"
+                                          }`}>
+                                            {ord.status === "delivered" ? "Đã giao" : ord.status === "shipping" ? "Đang giao" : "Chờ xử lý"}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1387,103 +1426,122 @@ export default function AdminPage() {
 
                 {/* 1. Mobile Sellers Cards (Tối ưu cực đẹp cho màn hình điện thoại) */}
                 <div className={`space-y-3 ${mobileLayout === "table" ? "hidden" : "block sm:hidden"}`}>
-                  {filteredSellers.map((s) => (
-                    <div key={s.id} className="border border-zinc-200/80 rounded-2xl p-4 bg-white shadow-xs space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setViewingSeller(s)}
-                            className="font-bold text-sm text-zinc-950 text-left hover:text-mewmao-orange"
-                          >
-                            {s.name}
-                          </button>
-                          {s.phone && (
-                            <a href={`tel:${s.phone}`} className="text-xs font-mono text-zinc-500 block">
-                              {s.phone}
-                            </a>
-                          )}
+                  {filteredSellers.map((s) => {
+                    const sOrders = orders.filter(
+                      (o) => o.affiliateCode && o.affiliateCode.trim().toUpperCase() === s.affiliateCode.trim().toUpperCase()
+                    );
+                    const sBottles = Math.max(
+                      s.bottlesSoldCount || 0,
+                      sOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
+                    );
+                    const sOrdersCount = Math.max(s.ordersCount || 0, sOrders.length);
+                    const sTotalEarned = Math.max(
+                      s.totalEarned || 0,
+                      sOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
+                    );
+                    const sBalance = Math.max(
+                      s.balance || 0,
+                      sTotalEarned - (s.totalWithdrawn || 0)
+                    );
+
+                    return (
+                      <div key={s.id} className="border border-zinc-200/80 rounded-2xl p-4 bg-white shadow-xs space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setViewingSeller(s)}
+                              className="font-bold text-sm text-zinc-950 text-left hover:text-mewmao-orange"
+                            >
+                              {s.name}
+                            </button>
+                            {s.phone && (
+                              <a href={`tel:${s.phone}`} className="text-xs font-mono text-zinc-500 block">
+                                {s.phone}
+                              </a>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-800 font-mono font-bold text-xs" title="Mã PIN đăng nhập cổng /seller">
+                              PIN: {s.pin || "1234"}
+                            </span>
+                            <span className="px-2.5 py-1 rounded-md bg-orange-50 border border-orange-200 text-mewmao-orange font-mono font-bold text-xs">
+                              {s.affiliateCode}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="px-2 py-0.5 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-800 font-mono font-bold text-xs" title="Mã PIN đăng nhập cổng /seller">
-                            PIN: {s.pin || "1234"}
+
+                        {/* Link Giới Thiệu & Nút Copy */}
+                        <div className="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200/60 text-xs font-mono">
+                          <span className="text-zinc-600 truncate flex-1 text-[11px]">
+                            /?ref={s.affiliateCode}
                           </span>
-                          <span className="px-2.5 py-1 rounded-md bg-orange-50 border border-orange-200 text-mewmao-orange font-mono font-bold text-xs">
-                            {s.affiliateCode}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Link Giới Thiệu & Nút Copy */}
-                      <div className="flex items-center gap-2 p-2 rounded-xl bg-zinc-50 border border-zinc-200/60 text-xs font-mono">
-                        <span className="text-zinc-600 truncate flex-1 text-[11px]">
-                          /?ref={s.affiliateCode}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopySellerLink(s.affiliateCode, s.id)}
-                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-sans font-bold transition-all shrink-0 ${
-                            copiedSellerId === s.id
-                              ? "bg-emerald-600 text-white shadow-xs"
-                              : "bg-zinc-900 text-white hover:bg-black"
-                          }`}
-                        >
-                          {copiedSellerId === s.id ? (
-                            <>
-                              <Check className="w-3 h-3" />
-                              <span>Đã chép!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy Link</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      {/* 4 Chỉ số */}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-xl bg-zinc-50">
-                          <span className="text-[10px] uppercase text-zinc-400 font-semibold block">Đã Bán</span>
-                          <span className="font-bold text-sm text-zinc-950 font-mono">{s.bottlesSoldCount || 0} chai</span>
-                          <span className="text-[10px] text-zinc-400 block">({s.ordersCount} đơn • {s.clicksCount} clicks)</span>
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-zinc-50">
-                          <span className="text-[10px] uppercase text-zinc-400 font-semibold block">Hoa Hồng ({Math.round(s.commissionRate * 100)}%)</span>
-                          <span className="font-bold text-sm text-mewmao-orange font-mono">{s.balance.toLocaleString("vi-VN")}₫</span>
-                          <span className="text-[10px] text-zinc-400 block">Tổng: {s.totalEarned.toLocaleString("vi-VN")}₫</span>
-                        </div>
-                      </div>
-
-                      <div className="text-[11px] text-zinc-500 font-mono pt-1 border-t border-zinc-100 flex items-center justify-between">
-                        <span className="truncate max-w-[180px]">{s.bankInfo.bankName} • {s.bankInfo.accountNumber}</span>
-                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setViewingSeller(s)}
-                            className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-[11px] font-semibold text-zinc-700"
+                            onClick={() => handleCopySellerLink(s.affiliateCode, s.id)}
+                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-sans font-bold transition-all shrink-0 ${
+                              copiedSellerId === s.id
+                                ? "bg-emerald-600 text-white shadow-xs"
+                                : "bg-zinc-900 text-white hover:bg-black"
+                            }`}
                           >
-                            Xem số liệu
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditSeller(s)}
-                            className="p-1.5 rounded hover:bg-zinc-100 text-zinc-600"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSeller(s.id, s.name)}
-                            className="p-1.5 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {copiedSellerId === s.id ? (
+                              <>
+                                <Check className="w-3 h-3" />
+                                <span>Đã chép!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>Copy Link</span>
+                              </>
+                            )}
                           </button>
                         </div>
+
+                        {/* 4 Chỉ số */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2.5 rounded-xl bg-zinc-50">
+                            <span className="text-[10px] uppercase text-zinc-400 font-semibold block">Đã Bán</span>
+                            <span className="font-bold text-sm text-zinc-950 font-mono">{sBottles} chai</span>
+                            <span className="text-[10px] text-zinc-400 block font-mono">({sOrdersCount} đơn • {s.clicksCount} clicks)</span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-zinc-50">
+                            <span className="text-[10px] uppercase text-zinc-400 font-semibold block">Hoa Hồng ({Math.round(s.commissionRate * 100)}%)</span>
+                            <span className="font-bold text-sm text-mewmao-orange font-mono">{sBalance.toLocaleString("vi-VN")}₫</span>
+                            <span className="text-[10px] text-zinc-400 block font-mono">Tổng: {sTotalEarned.toLocaleString("vi-VN")}₫</span>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-zinc-500 font-mono pt-1 border-t border-zinc-100 flex items-center justify-between">
+                          <span className="truncate max-w-[180px]">{s.bankInfo.bankName} • {s.bankInfo.accountNumber}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setViewingSeller(s)}
+                              className="px-2 py-1 rounded bg-zinc-100 hover:bg-zinc-200 text-[11px] font-semibold text-zinc-700"
+                            >
+                              Xem số liệu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditSeller(s)}
+                              className="p-1.5 rounded hover:bg-zinc-100 text-zinc-600"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSeller(s.id, s.name)}
+                              className="p-1.5 rounded hover:bg-red-50 text-zinc-400 hover:text-red-600"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* 2. Flat Sellers Wide Table (Dàn rộng tối đa cho máy tính) */}
@@ -1506,99 +1564,117 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100">
-                      {filteredSellers.map((s) => (
-                        <tr key={s.id} className="hover:bg-zinc-50/60 transition-colors">
-                          
-                          {/* Tên Seller */}
-                          <td className="py-3.5 px-4 font-bold text-zinc-950 whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => setViewingSeller(s)}
-                              className="text-left hover:text-mewmao-orange hover:underline font-bold"
-                            >
-                              {s.name}
-                            </button>
-                            {s.phone && (
-                              <span className="block text-[11px] font-mono font-normal text-zinc-400">
-                                {s.phone}
-                              </span>
-                            )}
-                          </td>
+                      {filteredSellers.map((s) => {
+                        const sOrders = orders.filter(
+                          (o) => o.affiliateCode && o.affiliateCode.trim().toUpperCase() === s.affiliateCode.trim().toUpperCase()
+                        );
+                        const sBottles = Math.max(
+                          s.bottlesSoldCount || 0,
+                          sOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
+                        );
+                        const sOrdersCount = Math.max(s.ordersCount || 0, sOrders.length);
+                        const sTotalEarned = Math.max(
+                          s.totalEarned || 0,
+                          sOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
+                        );
+                        const sBalance = Math.max(
+                          s.balance || 0,
+                          sTotalEarned - (s.totalWithdrawn || 0)
+                        );
 
-                          {/* Mã Affiliate */}
-                          <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
-                            <span className="px-2.5 py-1 rounded-md bg-orange-50 border border-orange-200/60 text-mewmao-orange text-xs">
-                              {s.affiliateCode}
-                            </span>
-                          </td>
-
-                          {/* Mã PIN Đăng nhập (/seller) */}
-                          <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs font-mono">
-                              PIN: {s.pin || "1234"}
-                            </span>
-                          </td>
-
-                          {/* Link Giới Thiệu (Cookie 30 Ngày) */}
-                          <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs">
-                            <div className="flex items-center gap-1.5">
-                              <span className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-[11px] max-w-[130px] truncate" title={`${origin}/?ref=${s.affiliateCode}`}>
-                                /?ref={s.affiliateCode}
-                              </span>
+                        return (
+                          <tr key={s.id} className="hover:bg-zinc-50/60 transition-colors">
+                            
+                            {/* Tên Seller */}
+                            <td className="py-3.5 px-4 font-bold text-zinc-950 whitespace-nowrap">
                               <button
                                 type="button"
-                                onClick={() => handleCopySellerLink(s.affiliateCode, s.id)}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-sans font-bold transition-all ${
-                                  copiedSellerId === s.id
-                                    ? "bg-emerald-600 text-white shadow-xs"
-                                    : "bg-zinc-900 hover:bg-black text-white"
-                                }`}
-                                title="Sao chép link gửi cho khách / seller"
+                                onClick={() => setViewingSeller(s)}
+                                className="text-left hover:text-mewmao-orange hover:underline font-bold"
                               >
-                                {copiedSellerId === s.id ? (
-                                  <>
-                                    <Check className="w-3 h-3" />
-                                    <span>Đã chép!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3" />
-                                    <span>Copy Link</span>
-                                  </>
-                                )}
+                                {s.name}
                               </button>
-                            </div>
-                          </td>
+                              {s.phone && (
+                                <span className="block text-[11px] font-mono font-normal text-zinc-400">
+                                  {s.phone}
+                                </span>
+                              )}
+                            </td>
 
-                          {/* % Hoa hồng */}
-                          <td className="py-3.5 px-4 text-zinc-700 font-bold whitespace-nowrap">
-                            {Math.round(s.commissionRate * 100)}%
-                          </td>
+                            {/* Mã Affiliate */}
+                            <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
+                              <span className="px-2.5 py-1 rounded-md bg-orange-50 border border-orange-200/60 text-mewmao-orange text-xs">
+                                {s.affiliateCode}
+                              </span>
+                            </td>
 
-                          {/* Số chai bán được */}
-                          <td className="py-3.5 px-4 font-bold text-zinc-950 text-sm whitespace-nowrap">
-                            {s.bottlesSoldCount || 0} <span className="text-xs font-normal text-zinc-500">chai</span>
-                          </td>
+                            {/* Mã PIN Đăng nhập (/seller) */}
+                            <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs font-mono">
+                                PIN: {s.pin || "1234"}
+                              </span>
+                            </td>
 
-                          {/* Số đơn */}
-                          <td className="py-3.5 px-4 text-zinc-600 whitespace-nowrap">
-                            {s.ordersCount} đơn
-                          </td>
+                            {/* Link Giới Thiệu (Cookie 30 Ngày) */}
+                            <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-[11px] max-w-[130px] truncate" title={`${origin}/?ref=${s.affiliateCode}`}>
+                                  /?ref={s.affiliateCode}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopySellerLink(s.affiliateCode, s.id)}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-sans font-bold transition-all ${
+                                    copiedSellerId === s.id
+                                      ? "bg-emerald-600 text-white shadow-xs"
+                                      : "bg-zinc-900 hover:bg-black text-white"
+                                  }`}
+                                  title="Sao chép link gửi cho khách / seller"
+                                >
+                                  {copiedSellerId === s.id ? (
+                                    <>
+                                      <Check className="w-3 h-3" />
+                                      <span>Đã chép!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3" />
+                                      <span>Copy Link</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </td>
 
-                          {/* Clicks */}
-                          <td className="py-3.5 px-4 text-zinc-500 whitespace-nowrap">
-                            {s.clicksCount} clicks
-                          </td>
+                            {/* % Hoa hồng */}
+                            <td className="py-3.5 px-4 text-zinc-700 font-bold whitespace-nowrap">
+                              {Math.round(s.commissionRate * 100)}%
+                            </td>
 
-                          {/* Tổng kiếm được */}
-                          <td className="py-3.5 px-4 font-bold text-zinc-950 whitespace-nowrap">
-                            {s.totalEarned.toLocaleString("vi-VN")}₫
-                          </td>
+                            {/* Số chai bán được */}
+                            <td className="py-3.5 px-4 font-bold text-zinc-950 text-sm whitespace-nowrap">
+                              {sBottles} <span className="text-xs font-normal text-zinc-500">chai</span>
+                            </td>
 
-                          {/* Số dư khả dụng */}
-                          <td className="py-3.5 px-4 font-bold text-mewmao-orange whitespace-nowrap">
-                            {s.balance.toLocaleString("vi-VN")}₫
-                          </td>
+                            {/* Số đơn */}
+                            <td className="py-3.5 px-4 text-zinc-600 whitespace-nowrap">
+                              {sOrdersCount} đơn
+                            </td>
+
+                            {/* Clicks */}
+                            <td className="py-3.5 px-4 text-zinc-500 whitespace-nowrap">
+                              {s.clicksCount} clicks
+                            </td>
+
+                            {/* Tổng kiếm được */}
+                            <td className="py-3.5 px-4 font-bold text-zinc-950 whitespace-nowrap">
+                              {sTotalEarned.toLocaleString("vi-VN")}₫
+                            </td>
+
+                            {/* Số dư khả dụng */}
+                            <td className="py-3.5 px-4 font-bold text-mewmao-orange whitespace-nowrap">
+                              {sBalance.toLocaleString("vi-VN")}₫
+                            </td>
 
                           {/* Ngân hàng */}
                           <td className="py-3.5 px-4 text-[11px] text-zinc-500 whitespace-nowrap font-mono">
@@ -1636,7 +1712,8 @@ export default function AdminPage() {
                           </td>
 
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
                 </div>

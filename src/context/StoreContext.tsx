@@ -48,6 +48,7 @@ interface StoreContextType {
     customerNote?: string;
     quantity: number;
     paymentMethod: "vietqr" | "cod";
+    affiliateCode?: string;
   }) => Order;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   deleteOrder: (orderId: string) => Promise<boolean>;
@@ -104,7 +105,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [userRole, setUserRole] = useState<UserRole>("guest");
   const [sellers, setSellers] = useState<Seller[]>(INITIAL_SELLERS);
   const [currentSeller, setCurrentSeller] = useState<Seller | null>(null);
-  const [activeRefCode, setActiveRefCode] = useState<string | null>(null);
+  const [activeRefCode, setActiveRefCodeState] = useState<string | null>(null);
+
+  // Wrapper để khi setActiveRefCode được gọi ở bất cứ đâu thì Cookie 30 ngày & localStorage đều tự động đồng bộ
+  const setActiveRefCode = (code: string | null) => {
+    const clean = code && code.trim() ? code.trim().toUpperCase() : null;
+    setActiveRefCodeState(clean);
+    if (typeof window !== "undefined") {
+      if (clean) {
+        setAffiliateCookie(clean, 30);
+        localStorage.setItem("mewmao_active_ref", clean);
+      } else {
+        setAffiliateCookie("", -1);
+        localStorage.removeItem("mewmao_active_ref");
+      }
+    }
+  };
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [payouts, setPayouts] = useState<PayoutRequest[]>(INITIAL_PAYOUTS);
   const [b2bInquiries, setB2BInquiries] = useState<B2BInquiry[]>(INITIAL_B2B_INQUIRIES);
@@ -147,36 +163,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Check URL query parameters
+    // ── XỬ LÝ LINK GIỚI THIỆU (?ref=...) & COOKIE 30 NGÀY ──
+    // Lưu vô điều kiện ngay lập tức khi phát hiện ?ref=... trên URL (không phụ thuộc vào sellers state)
     const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get("ref");
-    if (ref) {
+    if (ref && ref.trim()) {
       const cleanRef = ref.trim().toUpperCase();
-      const matchedSeller = sellers.find(
-        (s) => s.affiliateCode.toUpperCase() === cleanRef
-      );
-      if (matchedSeller) {
-        setActiveRefCode(matchedSeller.affiliateCode);
-        // Lưu Cookie 30 ngày và LocalStorage
-        setAffiliateCookie(matchedSeller.affiliateCode, 30);
-        localStorage.setItem("mewmao_active_ref", matchedSeller.affiliateCode);
-
-        // Record a click for this seller
-        setSellers((prev) =>
-          prev.map((s) =>
-            s.id === matchedSeller.id
-              ? { ...s, clicksCount: s.clicksCount + 1 }
-              : s
-          )
-        );
-      }
+      setActiveRefCode(cleanRef);
+      setAffiliateCookie(cleanRef, 30);
+      localStorage.setItem("mewmao_active_ref", cleanRef);
     } else {
       // Đọc từ Cookie (30 ngày) trước, sau đó từ localStorage
       const cookieRef = getAffiliateCookie();
       const savedRef = cookieRef || localStorage.getItem("mewmao_active_ref");
-      if (savedRef) {
+      if (savedRef && savedRef.trim()) {
         const cleanSavedRef = savedRef.trim().toUpperCase();
-        setActiveRefCode(cleanSavedRef);
+        setActiveRefCodeState(cleanSavedRef);
       }
     }
   }, []);
@@ -397,25 +399,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     customerNote?: string;
     quantity: number;
     paymentMethod: "vietqr" | "cod";
+    affiliateCode?: string;
   }): Order => {
     const subtotalAmount = product.price * data.quantity;
     const discountAmount = 0; // Bỏ giảm giá Promo: khách mua đúng giá niêm yết
     let commission = 0;
     let sellerToCredit: Seller | null = null;
 
-    // Nhận diện Seller qua activeRefCode hoặc Cookie / localStorage
-    const refCode =
-      activeRefCode ||
+    // Nhận diện Seller qua thứ tự ưu tiên:
+    // 1. Mã Affiliate truyền trực tiếp từ form (data.affiliateCode)
+    // 2. activeRefCode từ state
+    // 3. Cookie 30 ngày (mewmao_seller_ref)
+    // 4. LocalStorage (mewmao_active_ref)
+    const rawRefCode =
+      (data.affiliateCode && data.affiliateCode.trim()) ||
+      (activeRefCode && activeRefCode.trim()) ||
       getAffiliateCookie() ||
       (typeof window !== "undefined" ? localStorage.getItem("mewmao_active_ref") : null);
+
+    const refCode = rawRefCode ? rawRefCode.trim().toUpperCase() : null;
 
     if (refCode) {
       sellerToCredit =
         sellers.find(
-          (s) => s.affiliateCode.toUpperCase() === refCode.trim().toUpperCase()
+          (s) => s.affiliateCode && s.affiliateCode.trim().toUpperCase() === refCode
         ) || null;
+
       if (sellerToCredit) {
-        commission = Math.round(subtotalAmount * sellerToCredit.commissionRate);
+        // Cập nhật lại Cookie 30 ngày & localStorage với mã chuẩn xác của seller
+        setAffiliateCookie(sellerToCredit.affiliateCode, 30);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("mewmao_active_ref", sellerToCredit.affiliateCode);
+        }
+        // Tính hoa hồng theo đúng tỷ lệ riêng của Seller (mặc định 0.15 tức 15%)
+        commission = Math.round(subtotalAmount * (sellerToCredit.commissionRate || 0.15));
+      } else {
+        // Nếu mã affiliate được nhập nhưng danh sách sellers state chưa kịp đồng bộ seller mới:
+        // Vẫn lưu Cookie 30 ngày & tính mức hoa hồng mặc định 15%
+        setAffiliateCookie(refCode, 30);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("mewmao_active_ref", refCode);
+        }
+        commission = Math.round(subtotalAmount * 0.15);
       }
     }
 
@@ -443,12 +468,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       paymentMethod: data.paymentMethod,
       paymentStatus: data.paymentMethod === "vietqr" ? "paid" : "unpaid",
       status: "pending",
-      affiliateCode: sellerToCredit ? sellerToCredit.affiliateCode : undefined,
+      affiliateCode: sellerToCredit ? sellerToCredit.affiliateCode : (refCode || undefined),
       sellerCommission: commission,
       createdAt: formattedDate,
     };
 
-    // Update orders
+    // Update orders in state & localStorage
     setOrders((prev) => {
       const updated = [newOrder, ...prev.filter((o) => o.id !== newOrder.id)];
       if (typeof window !== "undefined") {
@@ -469,15 +494,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     // Credit seller if affiliate applied
     if (sellerToCredit) {
+      const creditedSellerId = sellerToCredit.id;
+      const addedCommission = commission;
+      const addedBottles = data.quantity;
+
       setSellers((prev) =>
         prev.map((s) => {
-          if (s.id === sellerToCredit!.id) {
+          if (s.id === creditedSellerId) {
             const updated = {
               ...s,
-              balance: s.balance + commission,
-              totalEarned: s.totalEarned + commission,
+              balance: s.balance + addedCommission,
+              totalEarned: s.totalEarned + addedCommission,
               ordersCount: s.ordersCount + 1,
-              bottlesSoldCount: (s.bottlesSoldCount || 0) + data.quantity,
+              bottlesSoldCount: (s.bottlesSoldCount || 0) + addedBottles,
             };
             if (currentSeller && currentSeller.id === s.id) {
               setCurrentSeller(updated);
@@ -489,9 +518,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       );
     }
 
-    // Sync to Supabase
+    // 1. Đồng bộ kho hàng (system inventory)
     if (isSupabaseConfigured && supabase) {
-      // 1. Sync inventory decrement
       supabase
         .from("sellers")
         .update({ bottles_sold_count: remainingStock })
@@ -499,35 +527,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .then(({ error }) => {
           if (error) console.error("Error updating inventory in Supabase:", error);
         });
+    }
 
-      // 2. Insert order to DB
-      const orderDbPayload = {
-        id: newOrder.id,
-        customer_name: newOrder.customerName,
-        customer_phone: newOrder.customerPhone,
-        customer_address: newOrder.customerAddress,
-        customer_note: newOrder.customerNote || null,
-        items: newOrder.items,
-        subtotal: newOrder.subtotalAmount,
-        discount_amount: newOrder.discountAmount,
-        total_amount: newOrder.totalAmount,
-        affiliate_code: newOrder.affiliateCode || null,
-        seller_commission: newOrder.sellerCommission,
-        payment_method: newOrder.paymentMethod,
-        payment_status: newOrder.paymentStatus,
-        status: newOrder.status,
-      };
+    // 2. Lưu đơn hàng vào Database & API
+    const orderDbPayload = {
+      id: newOrder.id,
+      customer_name: newOrder.customerName,
+      customer_phone: newOrder.customerPhone,
+      customer_address: newOrder.customerAddress,
+      customer_note: newOrder.customerNote || null,
+      items: newOrder.items,
+      subtotal: newOrder.subtotalAmount,
+      discount_amount: newOrder.discountAmount,
+      total_amount: newOrder.totalAmount,
+      affiliate_code: newOrder.affiliateCode || null,
+      seller_commission: newOrder.sellerCommission,
+      payment_method: newOrder.paymentMethod,
+      payment_status: newOrder.paymentStatus,
+      status: newOrder.status,
+    };
 
-      try {
-        fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(orderDbPayload),
-        }).then(() => refreshData());
-      } catch (e) {
-        console.warn("API insert order fallback error:", e);
-      }
+    try {
+      fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderDbPayload),
+      }).then(() => refreshData());
+    } catch (e) {
+      console.warn("API insert order fallback error:", e);
+    }
 
+    if (isSupabaseConfigured && supabase) {
       supabase
         .from("orders")
         .insert(orderDbPayload)
@@ -538,17 +568,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             refreshData();
           }
         });
+    }
 
-      if (sellerToCredit) {
+    // 3. Cập nhật hoa hồng & doanh số cho Seller trong DB & API
+    if (sellerToCredit) {
+      const sellerUpdateData = {
+        balance: sellerToCredit.balance + commission,
+        total_earned: sellerToCredit.totalEarned + commission,
+        orders_count: sellerToCredit.ordersCount + 1,
+        bottles_sold_count: (sellerToCredit.bottlesSoldCount || 0) + data.quantity,
+      };
+
+      try {
+        fetch("/api/sellers", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: sellerToCredit.id,
+            updates: sellerUpdateData,
+          }),
+        }).then(() => refreshData());
+      } catch (e) {
+        console.warn("API update seller fallback error:", e);
+      }
+
+      if (isSupabaseConfigured && supabase) {
         supabase
           .from("sellers")
-          .update({
-            balance: sellerToCredit.balance + commission,
-            total_earned: sellerToCredit.totalEarned + commission,
-            orders_count: sellerToCredit.ordersCount + 1,
-            bottles_sold_count:
-              (sellerToCredit.bottlesSoldCount || 0) + data.quantity,
-          })
+          .update(sellerUpdateData)
           .eq("id", sellerToCredit.id)
           .then(({ error }) => {
             if (error) {
@@ -558,6 +605,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
           });
       }
+    } else if (refCode && isSupabaseConfigured && supabase) {
+      // Trường hợp Seller mới tạo chưa kịp vào local state: Tìm trực tiếp trong DB theo affiliate_code
+      supabase
+        .from("sellers")
+        .select("*")
+        .ilike("affiliate_code", refCode)
+        .single()
+        .then(({ data: dbSeller }) => {
+          if (dbSeller) {
+            const actualRate = Number(dbSeller.commission_rate) || 0.15;
+            const actualComm = Math.round(subtotalAmount * actualRate);
+            const dbUpdates = {
+              balance: (Number(dbSeller.balance) || 0) + actualComm,
+              total_earned: (Number(dbSeller.total_earned) || 0) + actualComm,
+              orders_count: (Number(dbSeller.orders_count) || 0) + 1,
+              bottles_sold_count: (Number(dbSeller.bottles_sold_count) || 0) + data.quantity,
+            };
+            supabase
+              .from("sellers")
+              .update(dbUpdates)
+              .eq("id", dbSeller.id)
+              .then(() => refreshData());
+          }
+        });
     }
 
     return newOrder;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "@/context/StoreContext";
 import {
   X,
@@ -35,13 +35,23 @@ export default function QuickBuyDrawer() {
   const [manualRefCode, setManualRefCode] = useState(activeRefCode || "");
   const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null);
 
+  // Đồng bộ manualRefCode khi activeRefCode thay đổi (từ cookie hoặc URL)
+  useEffect(() => {
+    if (activeRefCode && !manualRefCode) {
+      setManualRefCode(activeRefCode);
+    }
+  }, [activeRefCode]);
+
   if (!isQuickBuyOpen) return null;
 
-  // Check matching seller from Cookie or manual code
-  const effectiveRefCode = manualRefCode.trim().toUpperCase() || (activeRefCode || "").toUpperCase();
-  const matchedSeller = sellers.find(
-    (s) => s.affiliateCode.toUpperCase() === effectiveRefCode
-  );
+  // Xác định mã affiliate hiệu lực & Seller tương ứng
+  const effectiveRefCode =
+    manualRefCode.trim().toUpperCase() || (activeRefCode || "").trim().toUpperCase();
+  const matchedSeller = effectiveRefCode
+    ? sellers.find(
+        (s) => s.affiliateCode && s.affiliateCode.trim().toUpperCase() === effectiveRefCode
+      )
+    : null;
   const subtotal = product.price * cartQuantity;
   const totalAmount = subtotal; // Bỏ giảm giá: mua đúng giá niêm yết 289.000₫/chai
 
@@ -55,9 +65,15 @@ export default function QuickBuyDrawer() {
       );
       return;
     }
-    if (manualRefCode.trim()) {
-      setActiveRefCode(manualRefCode.trim().toUpperCase());
+
+    const finalRefCode =
+      manualRefCode.trim().toUpperCase() ||
+      (activeRefCode ? activeRefCode.trim().toUpperCase() : "");
+
+    if (finalRefCode) {
+      setActiveRefCode(finalRefCode);
     }
+
     const order = placeOrder({
       customerName: name,
       customerPhone: phone,
@@ -65,6 +81,7 @@ export default function QuickBuyDrawer() {
       customerNote: note,
       quantity: cartQuantity,
       paymentMethod: "cod",
+      affiliateCode: finalRefCode || undefined,
     });
     setConfirmedOrder(order);
   };
@@ -149,6 +166,14 @@ export default function QuickBuyDrawer() {
                     {confirmedOrder.items.reduce((s: number, i: any) => s + i.quantity, 0)} {isEn ? "bottles (500ml)" : "chai Mewmao (500ml)"}
                   </strong>
                 </div>
+                {confirmedOrder.affiliateCode && (
+                  <div className="flex justify-between pb-2 border-b border-zinc-100">
+                    <span className="text-zinc-500">{isEn ? "Ambassador Code:" : "Mã giới thiệu:"}</span>
+                    <strong className="text-mewmao-orange font-mono font-bold">
+                      {confirmedOrder.affiliateCode} (Đã ghi nhận hoa hồng)
+                    </strong>
+                  </div>
+                )}
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-zinc-500 font-semibold">{isEn ? "Total Amount:" : "Tổng thanh toán:"}</span>
                   <strong className="text-lg font-black text-mewmao-orange font-mono">
@@ -226,40 +251,79 @@ export default function QuickBuyDrawer() {
                   </div>
                 </div>
 
-                {/* Affiliate Recognition via Cookie / Link */}
-                {matchedSeller ? (
-                  <div className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-orange-50/70 border border-orange-200/70 text-zinc-900">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 text-mewmao-orange" />
-                      <div>
-                        <span className="font-bold text-[11px] block text-zinc-900">
-                          {isEn ? `Referred by: ${matchedSeller.name}` : `Người giới thiệu: ${matchedSeller.name}`}
-                        </span>
-                        <span className="text-[10px] text-zinc-500 font-mono">
-                          {isEn
-                            ? `Ambassador code: ${matchedSeller.affiliateCode} (Cookie Tracked)`
-                            : `Mã đại sứ: ${matchedSeller.affiliateCode} (Đã ghi nhận Cookie)`}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      {isEn ? "✓ Linked" : "✓ Đã liên kết"}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-400">
-                      {t("drawer_ref_label")} ({isEn ? "Optional" : "Tùy chọn"})
+                {/* ── MÃ AFFILIATE & LINK GIỚI THIỆU (COOKIE 30 NGÀY) ── */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500 font-bold">
+                      {isEn ? "Ambassador / Referral Code" : "Mã Đại Sứ Giới Thiệu (Nếu có)"}
                     </label>
+                    {activeRefCode && (
+                      <span className="text-[9px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {isEn ? "Cookie 30 Days Active" : "Cookie 30 ngày đang lưu"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
                     <input
                       type="text"
                       value={manualRefCode}
-                      onChange={(e) => setManualRefCode(e.target.value.toUpperCase())}
-                      placeholder={t("drawer_ref_placeholder")}
-                      className="w-full px-4 py-2.5 text-xs rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 bg-white uppercase font-mono tracking-widest text-zinc-800 placeholder:text-zinc-300"
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setManualRefCode(val);
+                        if (val.trim()) {
+                          setActiveRefCode(val.trim());
+                        }
+                      }}
+                      placeholder={t("drawer_ref_placeholder") || "Nhập mã affiliate (VD: LMN, HOAI...)"}
+                      className="w-full px-4 py-2.5 text-xs rounded-xl border border-zinc-200 focus:outline-none focus:border-zinc-950 bg-white uppercase font-mono tracking-widest text-zinc-800 placeholder:text-zinc-300 transition-colors"
                     />
+                    {manualRefCode && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualRefCode("");
+                          setActiveRefCode(null);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 text-xs p-1"
+                        title="Xóa mã"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
-                )}
+
+                  {/* Real-time Recognition Badge */}
+                  {matchedSeller ? (
+                    <div className="flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 animate-fade-in">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <span className="font-bold text-[11px] block text-emerald-950">
+                            {isEn ? `Ambassador: ${matchedSeller.name}` : `Đại sứ: ${matchedSeller.name}`}
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-mono">
+                            {isEn
+                              ? `Code: ${matchedSeller.affiliateCode} • Commission credited: ${Math.round(matchedSeller.commissionRate * 100)}%`
+                              : `Mã: ${matchedSeller.affiliateCode} • Hoa hồng trích: ${Math.round(matchedSeller.commissionRate * 100)}%`}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                        {isEn ? "✓ Verified" : "✓ Đã nhận diện"}
+                      </span>
+                    </div>
+                  ) : effectiveRefCode ? (
+                    <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-xl bg-orange-50/80 border border-orange-200/80 text-zinc-800 animate-fade-in">
+                      <Sparkles className="w-3.5 h-3.5 text-mewmao-orange shrink-0" />
+                      <span className="text-[11px] text-zinc-700 font-mono">
+                        {isEn
+                          ? `Code "${effectiveRefCode}" will be credited to Ambassador upon order completion.`
+                          : `Mã "${effectiveRefCode}" sẽ được ghi nhận tính hoa hồng khi bạn đặt hàng.`}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
 
                 {/* Customer Info */}
                 <div className="space-y-3">
