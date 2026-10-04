@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     description: "The Taste of Night and Liberty. 19% ABV. Handcrafted in Vietnam.",
     url: "https://mewmao.com",
     siteName: "Mewmao Distillery",
-    locale: "en_US",
+    locale: "vi_VN",
     type: "website",
   },
 };
@@ -52,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable}`}>
+    <html lang="vi" className={`${sans.variable} ${serif.variable}`}>
       <body className="min-h-screen flex flex-col bg-white text-zinc-950 font-sans antialiased selection:bg-black selection:text-white">
         <StoreProvider>
           <Navbar />

@@ -97,7 +97,7 @@ function getAffiliateCookie(): string | null {
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("en"); // Default English as requested
+  const [language, setLanguageState] = useState<Language>("vi"); // Mặc định tiếng Việt khi vào website
   const [product, setProduct] = useState<Product>(SIGNATURE_PRODUCT);
   const [cartQuantity, setCartQuantity] = useState<number>(1);
   const [isQuickBuyOpen, setIsQuickBuyOpen] = useState<boolean>(false);
@@ -130,12 +130,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Load saved language (default 'en')
-    const savedLang = localStorage.getItem("mewmao_lang") as Language;
+    // Mặc định tiếng Việt khi vào website
+    if (localStorage.getItem("mewmao_lang")) {
+      localStorage.removeItem("mewmao_lang");
+    }
+    const savedLang = localStorage.getItem("mewmao_lang_v2") as Language;
     if (savedLang === "vi" || savedLang === "en") {
       setLanguageState(savedLang);
     } else {
-      setLanguageState("en");
+      setLanguageState("vi");
     }
 
     // Clear persistent age verification so the 18+ gate always shows on every visit/reload
@@ -370,7 +373,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     if (typeof window !== "undefined") {
-      localStorage.setItem("mewmao_lang", lang);
+      localStorage.setItem("mewmao_lang_v2", lang);
     }
   };
 

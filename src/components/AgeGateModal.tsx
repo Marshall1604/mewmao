@@ -116,7 +116,7 @@ export default function AgeGateModal() {
               transition={{ delay: 0.3, duration: 0.5 }}
               className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.25em] text-zinc-500 font-semibold"
             >
-              Age Verification • 18+
+              {isEn ? "Age Verification • 18+" : "Xác nhận độ tuổi • 18+"}
             </motion.p>
 
             {/* 4. Button xác nhận: Màu cam text đen */}
