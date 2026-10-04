@@ -39,6 +39,7 @@ export default function SellerPortalPage() {
 
   // UI States
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [mobileLayout, setMobileLayout] = useState<"card" | "table">("card");
   const [payoutAmount, setPayoutAmount] = useState<string>("");
   const [payoutMessage, setPayoutMessage] = useState<string>("");
@@ -183,6 +184,13 @@ export default function SellerPortalPage() {
     navigator.clipboard.writeText(affiliateUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleCopyCode = () => {
+    if (!currentSeller?.affiliateCode) return;
+    navigator.clipboard.writeText(currentSeller.affiliateCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
   };
 
   const handleRequestPayout = (e: React.FormEvent) => {
@@ -450,6 +458,43 @@ export default function SellerPortalPage() {
                     <span className="hidden sm:inline">{isEn ? "Test Link" : "Mở Thử"}</span>
                   </a>
                 </div>
+              </div>
+
+              {/* Ô Mã Affiliate Riêng * (Khách có thể nhập trực tiếp khi đặt hàng) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 rounded-xl bg-white border border-orange-200 text-xs shadow-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-600 font-bold">
+                    {isEn ? "Personal Affiliate Code *:" : "Mã Affiliate Riêng *:"}
+                  </span>
+                  <span className="px-3 py-1 rounded-lg bg-orange-50 border border-orange-200/80 text-mewmao-orange font-mono font-bold text-sm tracking-wider shadow-2xs">
+                    {currentSeller.affiliateCode}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-normal">
+                    {isEn ? "(Customers can enter this code at checkout)" : "(Khách có thể nhập mã này khi mua hàng)"}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs font-sans font-bold transition-all shadow-xs shrink-0 ${
+                    copiedCode
+                      ? "bg-emerald-600 text-white"
+                      : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200"
+                  }`}
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isEn ? "Copied Code!" : "Đã Chép Mã!"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{isEn ? "Copy Code" : "Sao Chép Mã"}</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
