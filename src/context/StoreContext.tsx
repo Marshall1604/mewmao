@@ -346,7 +346,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           status: (row.status as any) || "active",
           affiliateCode: row.affiliate_code,
           pin: row.pin,
-          commissionRate: Number(row.commission_rate) || 0.15,
+          commissionRate: row.commission_rate !== null && row.commission_rate !== undefined ? Number(row.commission_rate) : 0.15,
           promoDiscountPerBottle: Number(row.discount_percent) || 0,
           balance: Number(row.balance) || 0,
           totalWithdrawn: Number(row.total_withdrawn) || 0,
@@ -708,8 +708,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (typeof window !== "undefined") {
           localStorage.setItem("mewmao_active_ref", sellerToCredit.affiliateCode);
         }
-        // Tính hoa hồng theo đúng tỷ lệ riêng của Seller (mặc định 0.15 tức 15%)
-        commission = Math.round(subtotalAmount * (sellerToCredit.commissionRate || 0.15));
+        // Tính hoa hồng theo đúng tỷ lệ riêng của Seller (hỗ trợ từ 0% đến 100%)
+        commission = Math.round(subtotalAmount * (sellerToCredit.commissionRate !== undefined ? sellerToCredit.commissionRate : 0.15));
       } else {
         // Nếu mã affiliate được nhập nhưng danh sách sellers state chưa kịp đồng bộ seller mới:
         // Vẫn lưu Cookie 30 ngày & tính mức hoa hồng mặc định 15%
@@ -893,7 +893,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         .single()
         .then(({ data: dbSeller }) => {
           if (dbSeller) {
-            const actualRate = Number(dbSeller.commission_rate) || 0.15;
+            const actualRate = dbSeller.commission_rate !== null && dbSeller.commission_rate !== undefined ? Number(dbSeller.commission_rate) : 0.15;
             const actualComm = Math.round(subtotalAmount * actualRate);
             const dbUpdates = {
               balance: (Number(dbSeller.balance) || 0) + actualComm,

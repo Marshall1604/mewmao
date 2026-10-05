@@ -302,6 +302,7 @@ export default function AdminPage() {
   const [sellerModalOpen, setSellerModalOpen] = useState(false);
   const [editingSellerId, setEditingSellerId] = useState<string | null>(null);
   const [commissionAmountInput, setCommissionAmountInput] = useState<string>("");
+  const [commissionPercentInput, setCommissionPercentInput] = useState<string>("15");
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "pending" | "active">("all");
   const [sellerForm, setSellerForm] = useState<{
     name: string;
@@ -495,6 +496,7 @@ export default function AdminPage() {
       accountNumber: "",
       accountHolder: "",
     });
+    setCommissionPercentInput(defaultRate.toString());
     setCommissionAmountInput(defaultAmount.toLocaleString("vi-VN"));
     setSellerModalOpen(true);
   };
@@ -515,28 +517,32 @@ export default function AdminPage() {
       accountNumber: seller.bankInfo.accountNumber,
       accountHolder: seller.bankInfo.accountHolder,
     });
-    setCommissionAmountInput(amountVal > 0 ? amountVal.toLocaleString("vi-VN") : "");
+    setCommissionPercentInput(ratePercent.toString());
+    setCommissionAmountInput(amountVal.toLocaleString("vi-VN"));
     setSellerModalOpen(true);
   };
 
   const handleCommissionPercentChange = (valStr: string) => {
-    if (valStr === "") {
+    setCommissionPercentInput(valStr);
+    if (valStr.trim() === "") {
       setSellerForm((prev) => ({ ...prev, commissionRate: 0 }));
-      setCommissionAmountInput("");
+      setCommissionAmountInput("0");
       return;
     }
     const val = parseFloat(valStr);
     if (!isNaN(val)) {
-      setSellerForm((prev) => ({ ...prev, commissionRate: val }));
-      const calculatedAmount = Math.round(product.price * (val / 100));
-      setCommissionAmountInput(calculatedAmount > 0 ? calculatedAmount.toLocaleString("vi-VN") : "0");
+      const clamped = Math.max(0, Math.min(100, val));
+      setSellerForm((prev) => ({ ...prev, commissionRate: clamped }));
+      const calculatedAmount = Math.round(product.price * (clamped / 100));
+      setCommissionAmountInput(calculatedAmount.toLocaleString("vi-VN"));
     }
   };
 
   const handleCommissionAmountChange = (valStr: string) => {
     const rawNumberStr = valStr.replace(/\D/g, "");
     if (!rawNumberStr) {
-      setCommissionAmountInput("");
+      setCommissionAmountInput("0");
+      setCommissionPercentInput("0");
       setSellerForm((prev) => ({ ...prev, commissionRate: 0 }));
       return;
     }
@@ -544,7 +550,9 @@ export default function AdminPage() {
     setCommissionAmountInput(num.toLocaleString("vi-VN"));
     if (product.price > 0) {
       const calculatedPercent = Number(((num / product.price) * 100).toFixed(1));
-      setSellerForm((prev) => ({ ...prev, commissionRate: calculatedPercent }));
+      const clamped = Math.max(0, Math.min(100, calculatedPercent));
+      setCommissionPercentInput(clamped.toString());
+      setSellerForm((prev) => ({ ...prev, commissionRate: clamped }));
     }
   };
 
@@ -1898,7 +1906,7 @@ export default function AdminPage() {
                             <span className="text-[10px] text-zinc-400 block font-mono">({sOrdersCount} đơn • {s.clicksCount} clicks)</span>
                           </div>
                           <div className="p-2.5 rounded-xl bg-zinc-50">
-                            <span className="text-[10px] uppercase text-zinc-400 font-semibold block">Hoa Hồng ({Math.round(s.commissionRate * 100)}%)</span>
+                            <span className="text-[10px] uppercase text-zinc-400 font-semibold block">Hoa Hồng ({Number((s.commissionRate * 100).toFixed(1))}%)</span>
                             <span className="font-bold text-sm text-mewmao-orange font-mono">{sBalance.toLocaleString("vi-VN")}₫</span>
                             <span className="text-[10px] text-zinc-400 block font-mono">Tổng: {sTotalEarned.toLocaleString("vi-VN")}₫</span>
                           </div>
@@ -1934,7 +1942,7 @@ export default function AdminPage() {
                                   phone: s.phone,
                                   affiliateCode: s.affiliateCode,
                                   pin: s.pin || "123456",
-                                  commissionRatePercent: Math.round(s.commissionRate * 100),
+                                  commissionRatePercent: Number((s.commissionRate * 100).toFixed(1)),
                                   commissionAmount: Math.round(product.price * s.commissionRate),
                                 })
                               }
@@ -2088,7 +2096,7 @@ export default function AdminPage() {
 
                             {/* % Hoa hồng */}
                             <td className="py-3.5 px-4 text-zinc-700 font-bold whitespace-nowrap">
-                              {Math.round(s.commissionRate * 100)}%
+                              {Number((s.commissionRate * 100).toFixed(1))}%
                             </td>
 
                             {/* Số chai bán được */}
@@ -2157,7 +2165,7 @@ export default function AdminPage() {
                                     phone: s.phone,
                                     affiliateCode: s.affiliateCode,
                                     pin: s.pin || "123456",
-                                    commissionRatePercent: Math.round(s.commissionRate * 100),
+                                    commissionRatePercent: Number((s.commissionRate * 100).toFixed(1)),
                                     commissionAmount: Math.round(product.price * s.commissionRate),
                                   })
                                 }
@@ -3152,12 +3160,12 @@ export default function AdminPage() {
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
-                            step="0.1"
+                            step="any"
                             min={0}
                             max={100}
-                            value={sellerForm.commissionRate === 0 && commissionAmountInput === "" ? "" : sellerForm.commissionRate}
+                            value={commissionPercentInput}
                             onChange={(e) => handleCommissionPercentChange(e.target.value)}
-                            placeholder="15"
+                            placeholder="0"
                             className="w-full px-2 py-1 rounded-lg bg-orange-50/40 text-xs sm:text-sm font-bold text-zinc-950 font-mono focus:outline-none focus:bg-orange-50 focus:ring-1 focus:ring-orange-300"
                           />
                           <span className="text-xs font-bold text-mewmao-orange font-mono px-1">%</span>
@@ -3174,7 +3182,7 @@ export default function AdminPage() {
                             type="text"
                             value={commissionAmountInput}
                             onChange={(e) => handleCommissionAmountChange(e.target.value)}
-                            placeholder="43.350"
+                            placeholder="0"
                             className="w-full px-2 py-1 rounded-lg bg-orange-50/40 text-xs sm:text-sm font-bold text-zinc-950 font-mono focus:outline-none focus:bg-orange-50 focus:ring-1 focus:ring-orange-300"
                           />
                           <span className="text-xs font-bold text-zinc-600 font-mono px-1">₫</span>
@@ -3182,22 +3190,22 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    {/* Gợi ý quy đổi nhanh (Nút bấm 1-chạm) - Tối ưu 4 ô trên 1 hàng chuẩn */}
+                    {/* Gợi ý quy đổi nhanh (Nút bấm 1-chạm) - Hỗ trợ cả 0% */}
                     <div className="space-y-1 pt-0.5">
                       <span className="text-zinc-500 text-[10px] block">Gợi ý mức nhanh:</span>
-                      <div className="grid grid-cols-4 gap-1.5 font-mono text-[10px]">
-                        {[10, 15, 20, 25].map((pct) => (
+                      <div className="grid grid-cols-5 gap-1.5 font-mono text-[10px]">
+                        {[0, 10, 15, 20, 25].map((pct) => (
                           <button
                             key={pct}
                             type="button"
                             onClick={() => handleCommissionPercentChange(pct.toString())}
                             className={`py-1 rounded-lg border text-center transition-colors ${
-                              Math.round(sellerForm.commissionRate) === pct
+                              Number(commissionPercentInput) === pct
                                 ? "bg-zinc-900 text-white font-bold border-zinc-900 shadow-2xs"
                                 : "bg-white text-zinc-600 border-zinc-200 hover:border-orange-300 hover:text-zinc-900"
                             }`}
                           >
-                            {pct}% ({Math.round(product.price * (pct / 100) / 1000)}k)
+                            {pct}% {pct === 0 ? "(0₫)" : `(${Math.round(product.price * (pct / 100) / 1000)}k)`}
                           </button>
                         ))}
                       </div>
