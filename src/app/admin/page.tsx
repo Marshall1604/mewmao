@@ -47,6 +47,7 @@ export default function AdminPage() {
     sellers,
     orders,
     updateOrderStatus,
+    updatePaymentStatus,
     deleteOrder,
     refreshData,
     payouts,
@@ -68,23 +69,29 @@ export default function AdminPage() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>("");
   const [isDeletingOrder, setIsDeletingOrder] = useState<string | null>(null);
 
-  // ── 1. PIN 6 SỐ BẢO MẬT (/admin) ──
-  const MASTER_PIN = process.env.NEXT_PUBLIC_MASTER_ADMIN_PIN || "241091";
+  // ── 1. PIN 6 SỐ BẢO MẬT (XÁC THỰC MÁY CHỦ AN TOÀN) ──
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [pinError, setPinError] = useState<string>("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPin = sessionStorage.getItem("mewmao_admin_session_unlocked");
-      if (savedPin === "true") {
-        setIsUnlocked(true);
-      }
-    }
+    // Kiểm tra phiên đăng nhập an toàn từ server API
+    fetch("/api/auth/admin/me")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.authenticated) {
+          setIsUnlocked(true);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
+          }
+          refreshData();
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const handlePinChange = (index: number, value: string) => {
+  const handlePinChange = async (index: number, value: string) => {
     if (value.length > 1) {
       value = value.slice(-1);
     }
@@ -100,20 +107,31 @@ export default function AdminPage() {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // If all 6 digits entered, verify automatically
+    // Khi đủ 6 chữ số -> Gọi API xác thực ở máy chủ
     const fullPin = newPin.join("");
     if (fullPin.length === 6) {
-      if (fullPin === MASTER_PIN) {
-        setIsUnlocked(true);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
+      try {
+        const res = await fetch("/api/auth/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: fullPin }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setIsUnlocked(true);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
+          }
+          refreshData();
+        } else {
+          setPinError(data.error || "Mã PIN không đúng. Vui lòng thử lại.");
+          setTimeout(() => {
+            setPinDigits(["", "", "", "", "", ""]);
+            inputRefs.current[0]?.focus();
+          }, 600);
         }
-      } else {
-        setPinError("Mã PIN không đúng. Vui lòng thử lại.");
-        setTimeout(() => {
-          setPinDigits(["", "", "", "", "", ""]);
-          inputRefs.current[0]?.focus();
-        }, 600);
+      } catch (err) {
+        setPinError("Lỗi kết nối máy chủ. Vui lòng thử lại!");
       }
     }
   };
@@ -124,7 +142,10 @@ export default function AdminPage() {
     }
   };
 
-  const handleLock = () => {
+  const handleLock = async () => {
+    try {
+      await fetch("/api/auth/admin/me", { method: "POST" });
+    } catch {}
     setIsUnlocked(false);
     setPinDigits(["", "", "", "", "", ""]);
     if (typeof window !== "undefined") {
@@ -755,15 +776,30 @@ export default function AdminPage() {
 
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 const fullPin = pinDigits.join("");
-                if (fullPin === MASTER_PIN) {
-                  setIsUnlocked(true);
-                  if (typeof window !== "undefined") {
-                    sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
+                if (fullPin.length !== 6) {
+                  setPinError("Vui lòng nhập đủ 6 chữ số mã PIN");
+                  return;
+                }
+                try {
+                  const res = await fetch("/api/auth/admin/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pin: fullPin }),
+                  });
+                  const data = await res.json();
+                  if (res.ok && data.success) {
+                    setIsUnlocked(true);
+                    if (typeof window !== "undefined") {
+                      sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
+                    }
+                    refreshData();
+                  } else {
+                    setPinError(data.error || "Mã PIN không đúng. Vui lòng thử lại.");
                   }
-                } else {
-                  setPinError("Mã PIN không đúng. Vui lòng thử lại.");
+                } catch {
+                  setPinError("Lỗi kết nối máy chủ. Vui lòng thử lại!");
                 }
               }}
               className="btn-mewmao-black w-full justify-center py-3 text-xs font-bold font-sans"
@@ -1406,11 +1442,28 @@ export default function AdminPage() {
                                 </span>
                               )}
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              ord.paymentMethod === "vietqr" ? "bg-blue-100 text-blue-800" : "bg-zinc-200 text-zinc-800"
-                            }`}>
-                              {ord.paymentMethod === "vietqr" ? "VietQR (Đã trả)" : "COD (Thu tiền)"}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-zinc-500 font-medium">
+                                {ord.paymentMethod === "vietqr" ? "VietQR" : "COD"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updatePaymentStatus(
+                                    ord.id,
+                                    ord.paymentStatus === "paid" ? "unpaid" : "paid"
+                                  )
+                                }
+                                title="Bấm để chuyển đổi trạng thái thanh toán"
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
+                                  ord.paymentStatus === "paid"
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                    : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-emerald-50"
+                                }`}
+                              >
+                                {ord.paymentStatus === "paid" ? "✓ Đã thanh toán" : "⚠ Chưa đối soát"}
+                              </button>
+                            </div>
                           </div>
 
                           <div className="flex items-center justify-between pt-1 text-xs">
@@ -1510,11 +1563,28 @@ export default function AdminPage() {
                                 )}
                               </td>
                               <td className="py-3 px-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  ord.paymentMethod === "vietqr" ? "bg-blue-50 text-blue-700" : "bg-zinc-100 text-zinc-700"
-                                }`}>
-                                  {ord.paymentMethod === "vietqr" ? "VietQR (Đã trả)" : "COD (Thu tiền)"}
-                                </span>
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="text-[10px] font-mono text-zinc-500 font-semibold uppercase">
+                                    {ord.paymentMethod === "vietqr" ? "VietQR" : "COD"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updatePaymentStatus(
+                                        ord.id,
+                                        ord.paymentStatus === "paid" ? "unpaid" : "paid"
+                                      )
+                                    }
+                                    title="Bấm để chuyển đổi trạng thái thanh toán"
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                                      ord.paymentStatus === "paid"
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                        : "bg-amber-50 text-amber-900 border-amber-300 hover:bg-emerald-50 hover:text-emerald-800"
+                                    }`}
+                                  >
+                                    {ord.paymentStatus === "paid" ? "✓ Đã thanh toán" : "⚠ Chưa đối soát (Bấm xác nhận)"}
+                                  </button>
+                                </div>
                               </td>
                               <td className="py-3 px-4 whitespace-nowrap">
                                 {ord.affiliateCode ? (

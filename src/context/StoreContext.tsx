@@ -20,7 +20,6 @@ import {
 } from "@/data/mockData";
 
 import { Language, translations } from "@/data/translations";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 interface StoreContextType {
   product: Product;
@@ -35,6 +34,7 @@ interface StoreContextType {
   t: (key: keyof typeof translations.en) => string;
   userRole: UserRole;
   currentSeller: Seller | null;
+  setCurrentSeller: (seller: Seller | null) => void;
   switchUserRole: (role: UserRole, sellerId?: string) => void;
   activeRefCode: string | null;
   setActiveRefCode: (code: string | null) => void;
@@ -55,7 +55,7 @@ interface StoreContextType {
     affiliateCode?: string;
     voucherCode?: string;
     discountAmount?: number;
-  }) => Order;
+  }) => Promise<Order>;
   validateVoucher: (
     code: string,
     currentSubtotal: number
@@ -65,14 +65,15 @@ interface StoreContextType {
     message: string;
     voucher?: Voucher;
   };
-  addVoucher: (data: Omit<Voucher, "id" | "usedCount" | "createdAt">) => Voucher;
-  updateVoucher: (id: string, updates: Partial<Voucher>) => void;
+  addVoucher: (data: Omit<Voucher, "id" | "usedCount" | "createdAt">) => Promise<Voucher>;
+  updateVoucher: (id: string, updates: Partial<Voucher>) => Promise<boolean>;
   deleteVoucher: (id: string) => Promise<boolean>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<boolean>;
+  updatePaymentStatus: (orderId: string, status: "paid" | "unpaid") => Promise<boolean>;
   deleteOrder: (orderId: string) => Promise<boolean>;
   refreshData: () => Promise<void>;
-  requestPayout: (sellerId: string, amount: number) => boolean;
-  approvePayout: (payoutId: string) => void;
+  requestPayout: (sellerId: string, amount: number) => Promise<boolean>;
+  approvePayout: (payoutId: string) => Promise<boolean>;
   addSeller: (data: {
     name: string;
     email: string;
@@ -87,16 +88,16 @@ interface StoreContextType {
       accountNumber: string;
       accountHolder: string;
     };
-  }) => Seller;
+  }) => Promise<Seller>;
   registerSeller: (data: {
     name: string;
     phone: string;
     email: string;
   }) => Promise<Seller>;
   deleteSeller: (sellerId: string) => Promise<boolean>;
-  updateSeller: (sellerId: string, updates: Partial<Seller>) => void;
-  updateStock: (newStock: number) => void;
-  submitB2BInquiry: (data: Omit<B2BInquiry, "id" | "status" | "createdAt">) => void;
+  updateSeller: (sellerId: string, updates: Partial<Seller>) => Promise<boolean>;
+  updateStock: (newStock: number, newPrice?: number) => Promise<boolean>;
+  submitB2BInquiry: (data: Omit<B2BInquiry, "id" | "status" | "createdAt">) => Promise<boolean>;
   isAudioPlaying: boolean;
   toggleAudio: () => void;
 }
@@ -165,7 +166,7 @@ const DEFAULT_VOUCHERS: Voucher[] = [
 ];
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("vi"); // Mặc định tiếng Việt khi vào website
+  const [language, setLanguageState] = useState<Language>("vi"); // Mặc định tiếng Việt
   const [product, setProduct] = useState<Product>(SIGNATURE_PRODUCT);
   const [cartQuantity, setCartQuantity] = useState<number>(1);
   const [isQuickBuyOpen, setIsQuickBuyOpen] = useState<boolean>(false);
@@ -189,6 +190,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     }
   };
+
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [payouts, setPayouts] = useState<PayoutRequest[]>(INITIAL_PAYOUTS);
   const [b2bInquiries, setB2BInquiries] = useState<B2BInquiry[]>(INITIAL_B2B_INQUIRIES);
@@ -196,71 +198,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [selectedVoucherCode, setSelectedVoucherCode] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
 
-  // Initialize from LocalStorage and Cookie to handle URL ref code
+  // Khởi tạo các trạng thái từ Cookie / LocalStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Mặc định tiếng Việt khi vào website
-    if (localStorage.getItem("mewmao_lang")) {
-      localStorage.removeItem("mewmao_lang");
-    }
-    const savedLang = localStorage.getItem("mewmao_lang_v2") as Language;
-    if (savedLang === "vi" || savedLang === "en") {
+    const savedAge = localStorage.getItem("mewmao_age_verified");
+    if (savedAge === "true") setIsAgeVerified(true);
+
+    const savedLang = localStorage.getItem("mewmao_language") as Language;
+    if (savedLang && (savedLang === "vi" || savedLang === "en")) {
       setLanguageState(savedLang);
-    } else {
-      setLanguageState("vi");
     }
 
-    // Clear persistent age verification so the 18+ gate always shows on every visit/reload
-    localStorage.removeItem("mewmao_age_verified");
-    setIsAgeVerified(false);
-
-    // Load saved stock from localStorage
-    const savedStock = localStorage.getItem("mewmao_product_stock");
-    if (savedStock !== null) {
-      const parsedStock = parseInt(savedStock, 10);
-      if (!isNaN(parsedStock) && parsedStock >= 0) {
-        setProduct((prev) => ({ ...prev, stock: parsedStock }));
-      }
-    }
-
-    const savedOrders = localStorage.getItem("mewmao_orders");
-    if (savedOrders) {
-      try {
-        const parsed = JSON.parse(savedOrders);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setOrders(parsed);
+    // 1. Tải tồn kho & giá mới nhất từ Server
+    fetch("/api/inventory")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data.stock === "number") {
+          setProduct((prev) => ({
+            ...prev,
+            stock: data.stock,
+            price: data.price || prev.price,
+          }));
         }
-      } catch (e) {
-        console.warn("Error parsing saved orders from localStorage:", e);
-      }
-    }
+      })
+      .catch(() => {});
 
-    const savedVouchers = localStorage.getItem("mewmao_vouchers");
-    if (savedVouchers) {
-      try {
-        const parsed = JSON.parse(savedVouchers);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setVouchers(parsed);
-        }
-      } catch (e) {
-        console.warn("Error parsing saved vouchers from localStorage:", e);
-      }
-    }
-
-    // Tự động kéo voucher mới nhất từ server/Supabase ngay khi khởi động
+    // 2. Tải danh sách voucher hoạt động từ Server
     fetch("/api/vouchers")
       .then((r) => r.json())
       .then((res) => {
         if (Array.isArray(res.data) && res.data.length > 0) {
           setVouchers(res.data);
-          localStorage.setItem("mewmao_vouchers", JSON.stringify(res.data));
         }
       })
       .catch(() => {});
 
-    // ── XỬ LÝ LINK GIỚI THIỆU (?ref=...) & COOKIE 30 NGÀY ──
-    // Lưu vô điều kiện ngay lập tức khi phát hiện ?ref=... trên URL (không phụ thuộc vào sellers state)
+    // 3. Xử lý ?ref=... trên URL & Cookie 30 ngày
     const urlParams = new URLSearchParams(window.location.search);
     const ref = urlParams.get("ref");
     if (ref && ref.trim()) {
@@ -269,7 +243,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setAffiliateCookie(cleanRef, 30);
       localStorage.setItem("mewmao_active_ref", cleanRef);
     } else {
-      // Đọc từ Cookie (30 ngày) trước, sau đó từ localStorage
       const cookieRef = getAffiliateCookie();
       const savedRef = cookieRef || localStorage.getItem("mewmao_active_ref");
       if (savedRef && savedRef.trim()) {
@@ -277,240 +250,116 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setActiveRefCodeState(cleanSavedRef);
       }
     }
+
+    // 4. Nếu có phiên Admin hoặc Seller đã đăng nhập, tự động đồng bộ dữ liệu bảo mật
+    refreshData();
   }, []);
 
-  // Synchronize data from Supabase
+  // Synchronize data via Server APIs (Role-Based & Secure)
   const refreshData = async () => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (typeof window === "undefined") return;
 
+    // 1. Đồng bộ tồn kho & giá công khai
     try {
-      // 1. Fetch Sellers & System Inventory
-      let dbSellers: any[] | null = null;
-      if (isSupabaseConfigured && supabase) {
-        const { data, error } = await supabase
-          .from("sellers")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (!error && data) {
-          dbSellers = data;
+      const invRes = await fetch("/api/inventory");
+      if (invRes.ok) {
+        const invData = await invRes.json();
+        if (typeof invData.stock === "number") {
+          setProduct((prev) => ({
+            ...prev,
+            stock: invData.stock,
+            price: invData.price || prev.price,
+          }));
         }
       }
+    } catch {}
 
-      if (!dbSellers) {
-        try {
-          const apiRes = await fetch("/api/sellers");
-          if (apiRes.ok) {
-            const json = await apiRes.json();
-            if (json.data) dbSellers = json.data;
-          }
-        } catch (e) {
-          console.warn("API sellers fallback error:", e);
+    // 2. Đồng bộ voucher công khai
+    try {
+      const vRes = await fetch("/api/vouchers");
+      if (vRes.ok) {
+        const vData = await vRes.json();
+        if (Array.isArray(vData.data) && vData.data.length > 0) {
+          setVouchers(vData.data);
         }
       }
+    } catch {}
 
-      if (dbSellers) {
-        // Extract system inventory strictly by id
-        const systemInventory = dbSellers.find(
-          (row: any) => row.id === "system-inventory"
-        );
-        if (systemInventory) {
-          const syncedStock = Number(systemInventory.bottles_sold_count);
-          if (!isNaN(syncedStock) && syncedStock >= 0) {
-            setProduct((prev) => ({
-              ...prev,
-              stock: syncedStock,
-              price: Number(systemInventory.balance) > 0 ? Number(systemInventory.balance) : prev.price,
-            }));
-            if (typeof window !== "undefined") {
-              localStorage.setItem("mewmao_product_stock", syncedStock.toString());
-            }
-          }
-        }
-
-        // Filter out system rows so sellers only has real human sellers
-        const humanSellers = dbSellers.filter(
-          (row: any) =>
-            row.id !== "system-inventory" &&
-            row.id !== "system-vouchers" &&
-            row.status !== "system" &&
-            row.status !== "system_inventory" &&
-            row.status !== "system_vouchers"
-        );
-
-        const mappedSellers: Seller[] = humanSellers.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          email: row.email || "",
-          phone: row.phone || "",
-          role: "seller",
-          status: (row.status as any) || "active",
-          affiliateCode: row.affiliate_code,
-          pin: row.pin,
-          commissionRate: row.commission_rate !== null && row.commission_rate !== undefined ? Number(row.commission_rate) : 0.15,
-          promoDiscountPerBottle: Number(row.discount_percent) || 0,
-          balance: Number(row.balance) || 0,
-          totalWithdrawn: Number(row.total_withdrawn) || 0,
-          totalEarned: Number(row.total_earned) || 0,
-          clicksCount: 0,
-          ordersCount: Number(row.orders_count) || 0,
-          bottlesSoldCount: Number(row.bottles_sold_count) || 0,
-          createdAt: row.created_at ? row.created_at.split("T")[0] : "",
-          bankInfo: {
-            bankName: row.bank_name || "",
-            accountNumber: row.account_number || "",
-            accountHolder: row.account_holder || "",
-          },
-        }));
-        setSellers(mappedSellers);
-      }
-
-      // 2. Fetch Orders
-      let dbOrders: any[] | null = null;
-      if (isSupabaseConfigured && supabase) {
-        const { data, error: ordersErr } = await supabase
-          .from("orders")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (!ordersErr && data) {
-          dbOrders = data;
-        }
-      }
-
-      if (!dbOrders) {
-        try {
-          const apiRes = await fetch("/api/orders");
-          if (apiRes.ok) {
-            const json = await apiRes.json();
-            if (json.data) dbOrders = json.data;
-          }
-        } catch (e) {
-          console.warn("API orders fallback error:", e);
-        }
-      }
-
-      if (dbOrders) {
-        const mappedOrders: Order[] = dbOrders.map((row: any) => ({
-          id: row.id,
-          customerName: row.customer_name,
-          customerPhone: row.customer_phone,
-          customerAddress: row.customer_address,
-          customerNote: row.customer_note || "",
-          items: Array.isArray(row.items) ? row.items : [],
-          subtotalAmount: Number(row.subtotal) || 289000,
-          discountAmount: Number(row.discount_amount) || 0,
-          totalAmount: Number(row.total_amount) || 289000,
-          paymentMethod: row.payment_method || "cod",
-          paymentStatus: row.payment_status || "unpaid",
-          status: row.status || "pending",
-          affiliateCode: row.affiliate_code || undefined,
-          sellerCommission: Number(row.seller_commission) || 0,
-          createdAt: row.created_at ? row.created_at.replace("T", " ").slice(0, 16) : "",
-        }));
-        setOrders(mappedOrders);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("mewmao_orders", JSON.stringify(mappedOrders));
-        }
-      }
-
-      // 3. Fetch Payouts
-      const { data: dbPayouts, error: payoutsErr } = await supabase
-        .from("payouts")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!payoutsErr && dbPayouts) {
-        const mappedPayouts: PayoutRequest[] = dbPayouts.map((row: any) => ({
-          id: row.id,
-          sellerId: row.seller_id,
-          sellerName: row.account_holder || "",
-          amount: Number(row.amount) || 0,
-          bankInfo: {
-            bankName: row.bank_name || "",
-            accountNumber: row.account_number || "",
-            accountHolder: row.account_holder || "",
-          },
-          status: row.status || "pending",
-          requestedAt: row.requested_at || "",
-        }));
-        setPayouts(mappedPayouts);
-      }
-
-      // 4. Fetch Vouchers (tự động đồng bộ liên tục giữa các thiết bị)
+    // 3. Kiểm tra xem có phiên Admin không -> Lấy dữ liệu toàn bộ cửa hàng
+    const isAdminUnlocked = sessionStorage.getItem("mewmao_admin_session_unlocked") === "true";
+    if (isAdminUnlocked) {
       try {
-        const vRes = await fetch("/api/vouchers");
-        if (vRes.ok) {
-          const vJson = await vRes.json();
-          if (Array.isArray(vJson.data) && vJson.data.length > 0) {
-            setVouchers(vJson.data);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("mewmao_vouchers", JSON.stringify(vJson.data));
+        const adminRes = await fetch("/api/admin/data");
+        if (adminRes.ok) {
+          const adminData = await adminRes.json();
+          if (adminData.success && adminData.data) {
+            if (Array.isArray(adminData.data.sellers)) setSellers(adminData.data.sellers);
+            if (Array.isArray(adminData.data.orders)) setOrders(adminData.data.orders);
+            if (Array.isArray(adminData.data.payouts)) setPayouts(adminData.data.payouts);
+            if (Array.isArray(adminData.data.vouchers)) setVouchers(adminData.data.vouchers);
+            if (Array.isArray(adminData.data.b2bInquiries)) setB2BInquiries(adminData.data.b2bInquiries);
+            if (typeof adminData.data.stock === "number") {
+              setProduct((prev) => ({
+                ...prev,
+                stock: adminData.data.stock,
+                price: adminData.data.price || prev.price,
+              }));
             }
           }
         }
-      } catch (vErr) {
-        console.warn("API vouchers refresh error:", vErr);
+      } catch (err) {
+        console.warn("Sync admin data error:", err);
       }
-    } catch (err) {
-      console.warn("Supabase refreshData error:", err);
+    }
+
+    // 4. Kiểm tra xem có phiên Seller không -> Lấy dữ liệu của riêng seller đó
+    const sellerActiveId = sessionStorage.getItem("mewmao_active_seller_id");
+    if (sellerActiveId) {
+      try {
+        const sellerRes = await fetch("/api/auth/seller/me");
+        if (sellerRes.ok) {
+          const sData = await sellerRes.json();
+          if (sData.authenticated && sData.seller) {
+            setCurrentSeller(sData.seller);
+            if (Array.isArray(sData.orders)) setOrders(sData.orders);
+            if (Array.isArray(sData.payouts)) setPayouts(sData.payouts);
+          }
+        }
+      } catch (err) {
+        console.warn("Sync seller data error:", err);
+      }
     }
   };
-
-  useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
-
-    refreshData();
-
-    // Setup Supabase Realtime Channel
-    const channel = supabase
-      .channel("mewmao-store-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        refreshData();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, () => {
-        refreshData();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "payouts" }, () => {
-        refreshData();
-      })
-      .subscribe();
-
-    const handleFocus = () => {
-      refreshData();
-    };
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      supabase.removeChannel(channel);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, []);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     if (typeof window !== "undefined") {
-      localStorage.setItem("mewmao_lang_v2", lang);
+      localStorage.setItem("mewmao_language", lang);
     }
   };
 
-  const t = (key: keyof typeof translations.en): string => {
-    return translations[language]?.[key] || translations.en[key] || key;
+  const t = (key: keyof typeof translations.en) => {
+    return translations[language][key] || translations["en"][key] || key;
   };
 
   const verifyAge = () => {
     setIsAgeVerified(true);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mewmao_age_verified", "true");
+    }
   };
 
   const switchUserRole = (role: UserRole, sellerId?: string) => {
     setUserRole(role);
-    if (role === "seller") {
-      const target = sellers.find((s) => s.id === (sellerId || "seller-1"));
-      setCurrentSeller(target || sellers[0]);
-    } else {
+    if (role === "seller" && sellerId) {
+      const found = sellers.find((s) => s.id === sellerId);
+      if (found) setCurrentSeller(found);
+    } else if (role !== "seller") {
       setCurrentSeller(null);
     }
   };
 
-  // ── VOUCHER HELPERS & METHODS ──
+  // ── XÁC THỰC VOUCHER ──
   const validateVoucher = (
     code: string,
     currentSubtotal: number
@@ -520,127 +369,87 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     message: string;
     voucher?: Voucher;
   } => {
+    if (!code || !code.trim()) {
+      return { valid: false, discountAmount: 0, message: "Vui lòng nhập mã voucher" };
+    }
+
     const cleanCode = code.trim().toUpperCase();
-    if (!cleanCode) {
-      return { valid: false, discountAmount: 0, message: "Vui lòng nhập mã voucher." };
-    }
+    const matched = vouchers.find(
+      (v) => (v.code || "").toUpperCase() === cleanCode
+    );
 
-    const v = vouchers.find((item) => item.code.trim().toUpperCase() === cleanCode);
-    if (!v) {
-      return { valid: false, discountAmount: 0, message: "Mã voucher không tồn tại." };
-    }
-
-    if (v.status !== "active") {
-      return { valid: false, discountAmount: 0, message: "Voucher này đang tạm dừng áp dụng." };
-    }
-
-    if (v.usageLimit && v.usedCount >= v.usageLimit) {
-      return { valid: false, discountAmount: 0, message: "Voucher đã hết số lượt sử dụng." };
-    }
-
-    const today = new Date().toISOString().split("T")[0];
-    if (v.startDate && today < v.startDate) {
+    if (!matched) {
       return {
         valid: false,
         discountAmount: 0,
-        message: `Voucher sẽ có hiệu lực từ ngày ${v.startDate}.`,
+        message: `Mã "${cleanCode}" không tồn tại hoặc đã hết hạn`,
       };
     }
 
-    if (v.endDate && today > v.endDate) {
-      return { valid: false, discountAmount: 0, message: "Voucher đã hết hạn sử dụng." };
-    }
-
-    if (v.minOrderValue && currentSubtotal < v.minOrderValue) {
+    if (matched.status !== "active") {
       return {
         valid: false,
         discountAmount: 0,
-        message: `Đơn hàng tối thiểu ${v.minOrderValue.toLocaleString("vi-VN")}₫ để áp dụng.`,
+        message: `Mã "${matched.code}" hiện không còn hiệu lực`,
+      };
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (matched.startDate && matched.startDate > today) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        message: `Mã "${matched.code}" áp dụng từ ngày ${matched.startDate}`,
+      };
+    }
+
+    if (matched.endDate && matched.endDate < today) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        message: `Mã "${matched.code}" đã hết hạn vào ngày ${matched.endDate}`,
+      };
+    }
+
+    if (matched.minOrderValue && currentSubtotal < matched.minOrderValue) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        message: `Đơn hàng tối thiểu ${matched.minOrderValue.toLocaleString("vi-VN")}₫ để áp dụng mã này`,
+      };
+    }
+
+    if (
+      matched.usageLimit !== undefined &&
+      matched.usageLimit !== null &&
+      matched.usedCount >= matched.usageLimit
+    ) {
+      return {
+        valid: false,
+        discountAmount: 0,
+        message: `Mã "${matched.code}" đã hết lượt sử dụng`,
       };
     }
 
     let discount = 0;
-    if (v.discountType === "percent") {
-      discount = Math.round(currentSubtotal * (v.discountValue / 100));
+    if (matched.discountType === "percent") {
+      discount = Math.round(currentSubtotal * (matched.discountValue / 100));
     } else {
-      discount = v.discountValue;
+      discount = matched.discountValue;
     }
-    discount = Math.min(discount, currentSubtotal);
+
+    discount = Math.min(currentSubtotal, Math.max(0, discount));
 
     return {
       valid: true,
       discountAmount: discount,
-      message: `Áp dụng thành công voucher ${v.name}! Giảm ${discount.toLocaleString("vi-VN")}₫`,
-      voucher: v,
+      message: `Áp dụng thành công: ${matched.name} (-${discount.toLocaleString("vi-VN")}₫)`,
+      voucher: matched,
     };
   };
 
-  const addVoucher = (data: Omit<Voucher, "id" | "usedCount" | "createdAt">): Voucher => {
-    const newVoucher: Voucher = {
-      ...data,
-      id: `voucher-${Date.now()}`,
-      code: data.code.trim().toUpperCase(),
-      usedCount: 0,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    let updatedList: Voucher[] = [];
-    setVouchers((prev) => {
-      updatedList = [newVoucher, ...prev];
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_vouchers", JSON.stringify(updatedList));
-      }
-      return updatedList;
-    });
-
-    fetch("/api/vouchers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vouchers: updatedList }),
-    }).catch(() => {});
-
-    return newVoucher;
-  };
-
-  const updateVoucher = (id: string, updates: Partial<Voucher>) => {
-    let updatedList: Voucher[] = [];
-    setVouchers((prev) => {
-      updatedList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_vouchers", JSON.stringify(updatedList));
-      }
-      return updatedList;
-    });
-
-    fetch("/api/vouchers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vouchers: updatedList }),
-    }).catch(() => {});
-  };
-
-  const deleteVoucher = async (id: string): Promise<boolean> => {
-    let updatedList: Voucher[] = [];
-    setVouchers((prev) => {
-      updatedList = prev.filter((v) => v.id !== id);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_vouchers", JSON.stringify(updatedList));
-      }
-      return updatedList;
-    });
-
-    try {
-      await fetch("/api/vouchers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vouchers: updatedList }),
-      });
-      await fetch(`/api/vouchers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    } catch {}
-    return true;
-  };
-
-  const placeOrder = (data: {
+  // ── ĐẶT HÀNG QUA SERVER API (ATOMIC & SECURE) ──
+  const placeOrder = async (data: {
     customerName: string;
     customerPhone: string;
     customerAddress: string;
@@ -650,312 +459,97 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     affiliateCode?: string;
     voucherCode?: string;
     discountAmount?: number;
-  }): Order => {
-    const subtotalAmount = product.price * data.quantity;
-    const discountAmount = Math.min(subtotalAmount, Math.max(0, data.discountAmount || 0));
-    const totalAmount = Math.max(0, subtotalAmount - discountAmount);
-    let commission = 0;
-    let sellerToCredit: Seller | null = null;
-
-    // Tăng lượt sử dụng voucher nếu có áp dụng
-    if (data.voucherCode) {
-      const vCode = data.voucherCode.trim().toUpperCase();
-      setVouchers((prev) => {
-        const nextVouchers = prev.map((v) =>
-          v.code.toUpperCase() === vCode ? { ...v, usedCount: (v.usedCount || 0) + 1 } : v
-        );
-        if (typeof window !== "undefined") {
-          localStorage.setItem("mewmao_vouchers", JSON.stringify(nextVouchers));
-        }
-        return nextVouchers;
-      });
-
-      const matchedV = vouchers.find((v) => v.code.toUpperCase() === vCode);
-      if (matchedV) {
-        fetch("/api/vouchers", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: matchedV.id,
-            updates: { usedCount: (matchedV.usedCount || 0) + 1 },
-          }),
-        }).catch(() => {});
-      }
-    }
-
-    // Nhận diện Seller qua thứ tự ưu tiên:
-    // 1. Mã Affiliate truyền trực tiếp từ form (data.affiliateCode)
-    // 2. activeRefCode từ state
-    // 3. Cookie 30 ngày (mewmao_seller_ref)
-    // 4. LocalStorage (mewmao_active_ref)
+  }): Promise<Order> => {
     const rawRefCode =
       (data.affiliateCode && data.affiliateCode.trim()) ||
       (activeRefCode && activeRefCode.trim()) ||
       getAffiliateCookie() ||
       (typeof window !== "undefined" ? localStorage.getItem("mewmao_active_ref") : null);
 
-    const refCode = rawRefCode ? rawRefCode.trim().toUpperCase() : null;
-
-    if (refCode) {
-      sellerToCredit =
-        sellers.find(
-          (s) => s.affiliateCode && s.affiliateCode.trim().toUpperCase() === refCode
-        ) || null;
-
-      if (sellerToCredit) {
-        // Cập nhật lại Cookie 30 ngày & localStorage với mã chuẩn xác của seller
-        setAffiliateCookie(sellerToCredit.affiliateCode, 30);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("mewmao_active_ref", sellerToCredit.affiliateCode);
-        }
-        // Tính hoa hồng theo đúng tỷ lệ riêng của Seller (hỗ trợ từ 0% đến 100%)
-        commission = Math.round(subtotalAmount * (sellerToCredit.commissionRate !== undefined ? sellerToCredit.commissionRate : 0.15));
-      } else {
-        // Nếu mã affiliate được nhập nhưng danh sách sellers state chưa kịp đồng bộ seller mới:
-        // Vẫn lưu Cookie 30 ngày & tính mức hoa hồng mặc định 15%
-        setAffiliateCookie(refCode, 30);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("mewmao_active_ref", refCode);
-        }
-        commission = Math.round(subtotalAmount * 0.15);
-      }
-    }
-
-    const now = new Date();
-    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-    const newOrder: Order = {
-      id: `MM-${Math.floor(1000 + Math.random() * 9000)}`,
+    const payload = {
       customerName: data.customerName,
       customerPhone: data.customerPhone,
       customerAddress: data.customerAddress,
       customerNote: data.customerNote,
-      items: [
-        {
-          productId: product.id,
-          name: product.name,
-          quantity: data.quantity,
-          price: product.price,
-        },
-      ],
-      subtotalAmount,
-      discountAmount,
-      totalAmount,
+      quantity: data.quantity,
       paymentMethod: data.paymentMethod,
-      paymentStatus: data.paymentMethod === "vietqr" ? "paid" : "unpaid",
-      status: "pending",
-      affiliateCode: sellerToCredit ? sellerToCredit.affiliateCode : (refCode || undefined),
+      affiliateCode: rawRefCode ? rawRefCode.trim().toUpperCase() : undefined,
       voucherCode: data.voucherCode ? data.voucherCode.trim().toUpperCase() : undefined,
-      sellerCommission: commission,
-      createdAt: formattedDate,
     };
 
-    // Update orders in state & localStorage
-    setOrders((prev) => {
-      const updated = [newOrder, ...prev.filter((o) => o.id !== newOrder.id)];
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_orders", JSON.stringify(updated));
-      }
-      return updated;
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
-    // Update product stock
-    const remainingStock = Math.max(0, product.stock - data.quantity);
-    setProduct((prev) => ({
-      ...prev,
-      stock: remainingStock,
-    }));
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mewmao_product_stock", remainingStock.toString());
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || "Đặt hàng không thành công. Vui lòng thử lại!");
     }
 
-    // Credit seller if affiliate applied
-    if (sellerToCredit) {
-      const creditedSellerId = sellerToCredit.id;
-      const addedCommission = commission;
-      const addedBottles = data.quantity;
+    const createdOrder: Order = json.data;
 
-      setSellers((prev) =>
-        prev.map((s) => {
-          if (s.id === creditedSellerId) {
-            const updated = {
-              ...s,
-              balance: s.balance + addedCommission,
-              totalEarned: s.totalEarned + addedCommission,
-              ordersCount: s.ordersCount + 1,
-              bottlesSoldCount: (s.bottlesSoldCount || 0) + addedBottles,
-            };
-            if (currentSeller && currentSeller.id === s.id) {
-              setCurrentSeller(updated);
-            }
-            return updated;
-          }
-          return s;
-        })
-      );
+    // Cập nhật tồn kho hiển thị
+    if (typeof json.data.remainingStock === "number") {
+      setProduct((prev) => ({
+        ...prev,
+        stock: json.data.remainingStock,
+      }));
     }
 
-    // 1. Đồng bộ kho hàng (system inventory)
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("sellers")
-        .update({ bottles_sold_count: remainingStock })
-        .eq("id", "system-inventory")
-        .then(({ error }) => {
-          if (error) console.error("Error updating inventory in Supabase:", error);
-        });
-    }
+    // Cập nhật danh sách đơn hàng cục bộ
+    setOrders((prev) => [createdOrder, ...prev.filter((o) => o.id !== createdOrder.id)]);
 
-    // 2. Lưu đơn hàng vào Database & API
-    const orderDbPayload = {
-      id: newOrder.id,
-      customer_name: newOrder.customerName,
-      customer_phone: newOrder.customerPhone,
-      customer_address: newOrder.customerAddress,
-      customer_note: newOrder.voucherCode
-        ? `${newOrder.customerNote ? newOrder.customerNote + " " : ""}[Voucher: ${newOrder.voucherCode} -${newOrder.discountAmount?.toLocaleString("vi-VN")}₫]`
-        : (newOrder.customerNote || null),
-      items: newOrder.items,
-      subtotal: newOrder.subtotalAmount,
-      discount_amount: newOrder.discountAmount,
-      total_amount: newOrder.totalAmount,
-      affiliate_code: newOrder.affiliateCode || null,
-      seller_commission: newOrder.sellerCommission,
-      payment_method: newOrder.paymentMethod,
-      payment_status: newOrder.paymentStatus,
-      status: newOrder.status,
-    };
-
-    try {
-      fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderDbPayload),
-      }).then(() => refreshData());
-    } catch (e) {
-      console.warn("API insert order fallback error:", e);
-    }
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("orders")
-        .insert(orderDbPayload)
-        .then(({ error }) => {
-          if (error) {
-            console.error("Error inserting order into Supabase:", error);
-          } else {
-            refreshData();
-          }
-        });
-    }
-
-    // 3. Cập nhật hoa hồng & doanh số cho Seller trong DB & API
-    if (sellerToCredit) {
-      const sellerUpdateData = {
-        balance: sellerToCredit.balance + commission,
-        total_earned: sellerToCredit.totalEarned + commission,
-        orders_count: sellerToCredit.ordersCount + 1,
-        bottles_sold_count: (sellerToCredit.bottlesSoldCount || 0) + data.quantity,
-      };
-
-      try {
-        fetch("/api/sellers", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: sellerToCredit.id,
-            updates: sellerUpdateData,
-          }),
-        }).then(() => refreshData());
-      } catch (e) {
-        console.warn("API update seller fallback error:", e);
-      }
-
-      if (isSupabaseConfigured && supabase) {
-        supabase
-          .from("sellers")
-          .update(sellerUpdateData)
-          .eq("id", sellerToCredit.id)
-          .then(({ error }) => {
-            if (error) {
-              console.error("Error updating seller in Supabase:", error);
-            } else {
-              refreshData();
-            }
-          });
-      }
-    } else if (refCode && isSupabaseConfigured && supabase) {
-      // Trường hợp Seller mới tạo chưa kịp vào local state: Tìm trực tiếp trong DB theo affiliate_code
-      supabase
-        .from("sellers")
-        .select("*")
-        .ilike("affiliate_code", refCode)
-        .single()
-        .then(({ data: dbSeller }) => {
-          if (dbSeller) {
-            const actualRate = dbSeller.commission_rate !== null && dbSeller.commission_rate !== undefined ? Number(dbSeller.commission_rate) : 0.15;
-            const actualComm = Math.round(subtotalAmount * actualRate);
-            const dbUpdates = {
-              balance: (Number(dbSeller.balance) || 0) + actualComm,
-              total_earned: (Number(dbSeller.total_earned) || 0) + actualComm,
-              orders_count: (Number(dbSeller.orders_count) || 0) + 1,
-              bottles_sold_count: (Number(dbSeller.bottles_sold_count) || 0) + data.quantity,
-            };
-            supabase
-              .from("sellers")
-              .update(dbUpdates)
-              .eq("id", dbSeller.id)
-              .then(() => refreshData());
-          }
-        });
-    }
-
-    return newOrder;
+    return createdOrder;
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((prev) => {
-      const updated = prev.map((ord) => (ord.id === orderId ? { ...ord, status } : ord));
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_orders", JSON.stringify(updated));
-      }
-      return updated;
-    });
-
+  // ── CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (ADMIN) ──
+  const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<boolean> => {
     try {
-      fetch("/api/orders", {
+      const res = await fetch("/api/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: orderId, updates: { status } }),
-      }).then(() => refreshData());
+      });
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((ord) => (ord.id === orderId ? { ...ord, status } : ord))
+        );
+        return true;
+      }
     } catch (e) {
-      console.warn("API update order status error:", e);
+      console.error("Update order status error:", e);
     }
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("orders")
-        .update({ status })
-        .eq("id", orderId)
-        .then(({ error }) => {
-          if (error) {
-            console.error("Error updating order status in Supabase:", error);
-          } else {
-            refreshData();
-          }
-        });
-    }
+    return false;
   };
 
-  const deleteOrder = async (orderId: string): Promise<boolean> => {
-    setOrders((prev) => {
-      const updated = prev.filter((ord) => ord.id !== orderId);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("mewmao_orders", JSON.stringify(updated));
+  // ── CẬP NHẬT TRẠNG THÁI THANH TOÁN (ADMIN) ──
+  const updatePaymentStatus = async (
+    orderId: string,
+    status: "paid" | "unpaid"
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId, updates: { payment_status: status } }),
+      });
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((ord) => (ord.id === orderId ? { ...ord, paymentStatus: status } : ord))
+        );
+        return true;
       }
-      return updated;
-    });
+    } catch (e) {
+      console.error("Update payment status error:", e);
+    }
+    return false;
+  };
 
+  // ── XÓA ĐƠN HÀNG (ADMIN) ──
+  const deleteOrder = async (orderId: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/orders", {
         method: "DELETE",
@@ -963,25 +557,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ id: orderId }),
       });
       if (res.ok) {
-        await refreshData();
+        setOrders((prev) => prev.filter((ord) => ord.id !== orderId));
         return true;
       }
     } catch (e) {
-      console.warn("API delete fallback to client:", e);
+      console.error("Delete order error:", e);
     }
-
-    if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from("orders").delete().eq("id", orderId);
-      if (error) {
-        console.error("Error deleting order from Supabase:", error);
-        return false;
-      }
-      await refreshData();
-    }
-    return true;
+    return false;
   };
 
-  const addSeller = (data: {
+  // ── THÊM SELLER (ADMIN) ──
+  const addSeller = async (data: {
     name: string;
     email: string;
     phone?: string;
@@ -995,7 +581,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       accountNumber: string;
       accountHolder: string;
     };
-  }): Seller => {
+  }): Promise<Seller> => {
     const code =
       data.affiliateCode?.trim().toUpperCase() ||
       data.name
@@ -1031,8 +617,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       bankInfo: data.bankInfo,
     };
 
-    setSellers((prev) => [...prev, newSeller]);
-
     const dbPayload = {
       id: newSeller.id,
       name: newSeller.name,
@@ -1041,42 +625,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       affiliate_code: newSeller.affiliateCode,
       pin: newSeller.pin,
       commission_rate: newSeller.commissionRate,
-      discount_code: null,
       discount_percent: newSeller.promoDiscountPerBottle,
-      bottles_sold_count: 0,
-      orders_count: 0,
-      balance: 0,
-      total_earned: 0,
-      total_withdrawn: 0,
       bank_name: newSeller.bankInfo.bankName,
       account_number: newSeller.bankInfo.accountNumber,
       account_holder: newSeller.bankInfo.accountHolder,
       status: newSeller.status,
     };
 
-    try {
-      fetch("/api/sellers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dbPayload),
-      }).then(() => refreshData());
-    } catch (e) {
-      console.warn("API insert seller fallback error:", e);
-    }
+    const res = await fetch("/api/sellers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dbPayload),
+    });
 
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("sellers")
-        .insert(dbPayload)
-        .then(({ error }) => {
-          if (error) console.error("Error inserting seller into Supabase:", error);
-          else refreshData();
-        });
+    if (res.ok) {
+      setSellers((prev) => [newSeller, ...prev]);
     }
 
     return newSeller;
   };
 
+  // ── ĐĂNG KÝ SELLER TỰ DO (/partners & /seller) ──
   const registerSeller = async (data: {
     name: string;
     phone: string;
@@ -1119,8 +688,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
     };
 
-    setSellers((prev) => [newSeller, ...prev]);
-
     const dbPayload = {
       id: newSeller.id,
       name: newSeller.name,
@@ -1128,51 +695,67 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       email: newSeller.email,
       affiliate_code: newSeller.affiliateCode,
       pin: newSeller.pin,
-      commission_rate: newSeller.commissionRate,
-      discount_code: null,
-      discount_percent: 0,
-      bottles_sold_count: 0,
-      orders_count: 0,
-      balance: 0,
-      total_earned: 0,
-      total_withdrawn: 0,
-      bank_name: "",
-      account_number: "",
-      account_holder: "",
+      commission_rate: 0.15,
       status: "pending",
     };
 
-    try {
-      await fetch("/api/sellers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dbPayload),
-      });
-      await refreshData();
-    } catch (e) {
-      console.warn("API register seller fallback error:", e);
+    const res = await fetch("/api/sellers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dbPayload),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || "Đăng ký không thành công");
     }
 
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("sellers")
-        .insert(dbPayload)
-        .then(({ error }) => {
-          if (error) console.error("Error inserting pending seller to Supabase:", error);
-          else refreshData();
-        });
-    }
-
+    setSellers((prev) => [newSeller, ...prev]);
     return newSeller;
   };
 
-  const deleteSeller = async (sellerId: string): Promise<boolean> => {
-    setSellers((prev) => prev.filter((s) => s.id !== sellerId));
+  // ── CẬP NHẬT SELLER (ADMIN HOẶC SELLER TỰ CẬP NHẬT) ──
+  const updateSeller = async (
+    sellerId: string,
+    updates: Partial<Seller>
+  ): Promise<boolean> => {
+    setSellers((prev) =>
+      prev.map((s) => (s.id === sellerId ? { ...s, ...updates } : s))
+    );
     if (currentSeller && currentSeller.id === sellerId) {
-      setCurrentSeller(null);
+      setCurrentSeller((prev) => (prev ? { ...prev, ...updates } : null));
     }
 
-    let deletedViaApi = false;
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.affiliateCode !== undefined) dbUpdates.affiliate_code = updates.affiliateCode;
+    if (updates.pin !== undefined) dbUpdates.pin = updates.pin;
+    if (updates.commissionRate !== undefined) dbUpdates.commission_rate = updates.commissionRate;
+    if (updates.promoDiscountPerBottle !== undefined) dbUpdates.discount_percent = updates.promoDiscountPerBottle;
+    if (updates.balance !== undefined) dbUpdates.balance = updates.balance;
+    if (updates.bankInfo !== undefined) {
+      dbUpdates.bank_name = updates.bankInfo.bankName;
+      dbUpdates.account_number = updates.bankInfo.accountNumber;
+      dbUpdates.account_holder = updates.bankInfo.accountHolder;
+    }
+
+    try {
+      const res = await fetch("/api/sellers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: sellerId, updates: dbUpdates }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // ── XÓA SELLER (ADMIN) ──
+  const deleteSeller = async (sellerId: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/sellers", {
         method: "DELETE",
@@ -1180,207 +763,160 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ id: sellerId }),
       });
       if (res.ok) {
-        deletedViaApi = true;
-        await refreshData();
+        setSellers((prev) => prev.filter((s) => s.id !== sellerId));
+        return true;
       }
     } catch (e) {
-      console.warn("API delete seller error:", e);
+      console.error("Delete seller error:", e);
     }
-
-    if (!deletedViaApi && isSupabaseConfigured && supabase) {
-      const { error } = await supabase.from("sellers").delete().eq("id", sellerId);
-      if (error) {
-        console.error("Error deleting seller from Supabase:", error);
-        return false;
-      }
-      await refreshData();
-    }
-    return true;
+    return false;
   };
 
-  const updateSeller = (sellerId: string, updates: Partial<Seller>) => {
-    setSellers((prev) =>
-      prev.map((s) => {
-        if (s.id === sellerId) {
-          const updated = { ...s, ...updates };
-          if (currentSeller && currentSeller.id === sellerId) {
-            setCurrentSeller(updated);
-          }
-          return updated;
+  // ── YÊU CẦU RÚT TIỀN (SELLER) ──
+  const requestPayout = async (sellerId: string, amount: number): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/payouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sellerId, amount }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPayouts((prev) => [data.data, ...prev]);
+        if (currentSeller && currentSeller.id === sellerId) {
+          setCurrentSeller((prev) =>
+            prev ? { ...prev, balance: data.data.newBalance } : null
+          );
         }
-        return s;
-      })
-    );
-
-    const payload: any = {};
-    if (updates.name !== undefined) payload.name = updates.name;
-    if (updates.phone !== undefined) payload.phone = updates.phone;
-    if (updates.email !== undefined) payload.email = updates.email;
-    if (updates.affiliateCode !== undefined) payload.affiliate_code = updates.affiliateCode;
-    if (updates.pin !== undefined) payload.pin = updates.pin;
-    if (updates.status !== undefined) payload.status = updates.status;
-    if (updates.commissionRate !== undefined)
-      payload.commission_rate = updates.commissionRate;
-    if (updates.bankInfo) {
-      payload.bank_name = updates.bankInfo.bankName;
-      payload.account_number = updates.bankInfo.accountNumber;
-      payload.account_holder = updates.bankInfo.accountHolder;
-    }
-
-    if (Object.keys(payload).length > 0) {
-      try {
-        fetch("/api/sellers", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: sellerId, updates: payload }),
-        }).then(() => refreshData());
-      } catch (e) {
-        console.warn("API update seller error:", e);
-      }
-
-      if (isSupabaseConfigured && supabase) {
-        supabase
-          .from("sellers")
-          .update(payload)
-          .eq("id", sellerId)
-          .then(({ error }) => {
-            if (error) {
-              console.error("Error updating seller in Supabase:", error);
-            } else {
-              refreshData();
-            }
-          });
-      }
-    }
-  };
-
-  const updateStock = async (newStock: number) => {
-    const validStock = Math.max(0, newStock);
-    setProduct((prev) => ({
-      ...prev,
-      stock: validStock,
-    }));
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mewmao_product_stock", validStock.toString());
-    }
-
-    if (isSupabaseConfigured && supabase) {
-      const { error } = await supabase
-        .from("sellers")
-        .upsert({
-          id: "system-inventory",
-          name: "Mewmao Inventory",
-          affiliate_code: "SYS_STOCK",
-          pin: "000000",
-          bottles_sold_count: validStock,
-          balance: product.price > 0 ? product.price : 289000,
-          status: "system_inventory",
-        });
-      if (error) {
-        console.error("Error saving inventory to Supabase:", error);
+        return true;
       } else {
-        await refreshData();
+        alert(data.error || "Rút tiền không thành công");
       }
+    } catch (e) {
+      console.error("Request payout error:", e);
     }
+    return false;
   };
 
-  const requestPayout = (sellerId: string, amount: number): boolean => {
-    const seller = sellers.find((s) => s.id === sellerId);
-    if (!seller || seller.balance < amount || amount <= 0) return false;
-
-    const newPayout: PayoutRequest = {
-      id: `PAY-${Math.floor(100 + Math.random() * 900)}`,
-      sellerId: seller.id,
-      sellerName: seller.name,
-      amount,
-      bankInfo: seller.bankInfo,
-      status: "pending",
-      requestedAt: new Date().toISOString().split("T")[0],
-    };
-
-    setPayouts((prev) => [newPayout, ...prev]);
-    setSellers((prev) =>
-      prev.map((s) => {
-        if (s.id === sellerId) {
-          const updated = {
-            ...s,
-            balance: s.balance - amount,
-            totalWithdrawn: s.totalWithdrawn + amount,
-          };
-          if (currentSeller && currentSeller.id === s.id) {
-            setCurrentSeller(updated);
-          }
-          return updated;
-        }
-        return s;
-      })
-    );
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("payouts")
-        .insert({
-          id: newPayout.id,
-          seller_id: newPayout.sellerId,
-          amount: newPayout.amount,
-          bank_name: newPayout.bankInfo.bankName,
-          account_number: newPayout.bankInfo.accountNumber,
-          account_holder: newPayout.bankInfo.accountHolder,
-          status: "pending",
-          requested_at: newPayout.requestedAt,
-        })
-        .then(({ error }) => {
-          if (error) console.error("Error inserting payout into Supabase:", error);
-        });
-
-      supabase
-        .from("sellers")
-        .update({
-          balance: seller.balance - amount,
-          total_withdrawn: seller.totalWithdrawn + amount,
-        })
-        .eq("id", seller.id)
-        .then(({ error }) => {
-          if (error)
-            console.error("Error updating seller balance in Supabase:", error);
-        });
+  // ── DUYỆT RÚT TIỀN (ADMIN) ──
+  const approvePayout = async (payoutId: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/payouts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payoutId, status: "completed" }),
+      });
+      if (res.ok) {
+        setPayouts((prev) =>
+          prev.map((p) => (p.id === payoutId ? { ...p, status: "completed" } : p))
+        );
+        return true;
+      }
+    } catch (e) {
+      console.error("Approve payout error:", e);
     }
-
-    return true;
+    return false;
   };
 
-  const approvePayout = (payoutId: string) => {
-    const today = new Date().toISOString().split("T")[0];
-    setPayouts((prev) =>
-      prev.map((p) =>
-        p.id === payoutId
-          ? { ...p, status: "completed", processedAt: today }
-          : p
-      )
-    );
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("payouts")
-        .update({ status: "completed" })
-        .eq("id", payoutId)
-        .then(({ error }) => {
-          if (error) console.error("Error approving payout in Supabase:", error);
-        });
-    }
-  };
-
-  const submitB2BInquiry = (
-    data: Omit<B2BInquiry, "id" | "status" | "createdAt">
-  ) => {
-    const newInquiry: B2BInquiry = {
+  // ── THÊM VOUCHER (ADMIN) ──
+  const addVoucher = async (
+    data: Omit<Voucher, "id" | "usedCount" | "createdAt">
+  ): Promise<Voucher> => {
+    const newV: Voucher = {
       ...data,
-      id: `b2b-${Date.now()}`,
-      status: "new",
+      id: `voucher-${Date.now()}`,
+      code: data.code.trim().toUpperCase(),
+      usedCount: 0,
       createdAt: new Date().toISOString().split("T")[0],
     };
-    setB2BInquiries((prev) => [newInquiry, ...prev]);
+
+    const res = await fetch("/api/vouchers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newV),
+    });
+
+    if (res.ok) {
+      setVouchers((prev) => [newV, ...prev]);
+    }
+    return newV;
+  };
+
+  // ── CẬP NHẬT VOUCHER (ADMIN) ──
+  const updateVoucher = async (
+    id: string,
+    updates: Partial<Voucher>
+  ): Promise<boolean> => {
+    setVouchers((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, ...updates } : v))
+    );
+
+    try {
+      const res = await fetch("/api/vouchers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, updates }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // ── XÓA VOUCHER (ADMIN) ──
+  const deleteVoucher = async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/vouchers?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setVouchers((prev) => prev.filter((v) => v.id !== id));
+        return true;
+      }
+    } catch {}
+    return false;
+  };
+
+  // ── CẬP NHẬT KHO HÀNG (ADMIN) ──
+  const updateStock = async (newStock: number, newPrice?: number): Promise<boolean> => {
+    setProduct((prev) => ({
+      ...prev,
+      stock: newStock,
+      price: newPrice !== undefined ? newPrice : prev.price,
+    }));
+
+    try {
+      const res = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock: newStock, price: newPrice }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  // ── GỬI FORM ĐỐI TÁC B2B (LƯU DB & GỬI EMAIL ADMIN) ──
+  const submitB2BInquiry = async (
+    data: Omit<B2BInquiry, "id" | "status" | "createdAt">
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/b2b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setB2BInquiries((prev) => [json.data, ...prev]);
+        return true;
+      }
+    } catch (e) {
+      console.error("Submit B2B inquiry error:", e);
+    }
+    return false;
   };
 
   const toggleAudio = () => {
@@ -1402,6 +938,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         t,
         userRole,
         currentSeller,
+        setCurrentSeller,
         switchUserRole,
         activeRefCode,
         setActiveRefCode,
@@ -1418,6 +955,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         deleteVoucher,
         placeOrder,
         updateOrderStatus,
+        updatePaymentStatus,
         deleteOrder,
         refreshData,
         requestPayout,

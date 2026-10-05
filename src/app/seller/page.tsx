@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useStore } from "@/context/StoreContext";
-import { Seller, Order } from "@/types";
+import { Seller, Order, PayoutRequest } from "@/types";
 import {
   Lock,
   ArrowRight,
@@ -27,13 +27,15 @@ import {
 } from "lucide-react";
 
 export default function SellerPortalPage() {
-  const { sellers, orders, requestPayout, payouts, language, registerSeller } = useStore();
+  const { language, registerSeller, requestPayout } = useStore();
   const isEn = language === "en";
   const formatPrice = (val: number) =>
     isEn ? `${val.toLocaleString("en-US")}₫` : `${val.toLocaleString("vi-VN")}₫`;
 
   // Authentication State
   const [authenticatedSeller, setAuthenticatedSeller] = useState<Seller | null>(null);
+  const [loadedSellerOrders, setLoadedSellerOrders] = useState<Order[]>([]);
+  const [loadedSellerPayouts, setLoadedSellerPayouts] = useState<PayoutRequest[]>([]);
   const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [pinError, setPinError] = useState<string>("");
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -52,23 +54,29 @@ export default function SellerPortalPage() {
   const [payoutAmount, setPayoutAmount] = useState<string>("");
   const [payoutMessage, setPayoutMessage] = useState<string>("");
 
-  // Restore seller session on page mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedSellerId = sessionStorage.getItem("mewmao_active_seller_id");
-      if (savedSellerId) {
-        const found = sellers.find((s) => s.id === savedSellerId);
-        if (found) {
-          setAuthenticatedSeller(found);
+  // Tải thông tin phiên đăng nhập của Seller từ máy chủ
+  const refreshSellerSession = async () => {
+    try {
+      const res = await fetch("/api/auth/seller/me");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated && data.seller) {
+          setAuthenticatedSeller(data.seller);
+          if (Array.isArray(data.orders)) setLoadedSellerOrders(data.orders);
+          if (Array.isArray(data.payouts)) setLoadedSellerPayouts(data.payouts);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("mewmao_active_seller_id", data.seller.id);
+          }
         }
       }
-    }
-  }, [sellers]);
+    } catch {}
+  };
 
-  // Keep authenticatedSeller synced if store updates
-  const currentSeller = authenticatedSeller
-    ? sellers.find((s) => s.id === authenticatedSeller.id) || authenticatedSeller
-    : null;
+  useEffect(() => {
+    refreshSellerSession();
+  }, []);
+
+  const currentSeller = authenticatedSeller;
 
   // Origin URL for affiliate links
   const origin =
@@ -78,13 +86,7 @@ export default function SellerPortalPage() {
     : "";
 
   // Filter orders made through this seller's affiliate link
-  const sellerOrders: Order[] = currentSeller
-    ? orders.filter(
-        (o) =>
-          o.affiliateCode &&
-          o.affiliateCode.toUpperCase() === currentSeller.affiliateCode.toUpperCase()
-      )
-    : [];
+  const sellerOrders: Order[] = loadedSellerOrders;
 
   // Calculate realtime metrics
   const bottlesSoldFromOrders = sellerOrders.reduce(
@@ -106,9 +108,7 @@ export default function SellerPortalPage() {
   );
 
   // Filter payouts requested by this seller
-  const sellerPayouts = currentSeller
-    ? payouts.filter((p) => p.sellerId === currentSeller.id)
-    : [];
+  const sellerPayouts = loadedSellerPayouts;
 
   // PIN Input Handlers
   const handlePinChange = (index: number, val: string) => {
@@ -143,32 +143,35 @@ export default function SellerPortalPage() {
     }
   };
 
-  const verifyPin = (pin: string) => {
-    const matched = sellers.find((s) => (s.pin || "").trim() === pin.trim());
-    if (matched) {
-      if (matched.status === "pending") {
+  const verifyPin = async (pin: string) => {
+    try {
+      const res = await fetch("/api/auth/seller/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.seller) {
+        setAuthenticatedSeller(data.seller);
+        setPinError("");
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("mewmao_active_seller_id", data.seller.id);
+        }
+        await refreshSellerSession();
+      } else {
         setPinError(
-          isEn
-            ? "Your seller account is awaiting Admin approval. Mewmao will contact you shortly!"
-            : "Tài khoản của bạn đang chờ Admin duyệt. Mewmao sẽ liên hệ lại với bạn sớm nhất!"
+          data.error ||
+            (isEn
+              ? "Incorrect PIN or not yet issued by Admin. Please try again!"
+              : "Mã PIN không đúng hoặc chưa được Admin cấp. Vui lòng thử lại!")
         );
-        return;
+        setTimeout(() => {
+          setPinDigits(["", "", "", "", "", ""]);
+          inputRefs.current[0]?.focus();
+        }, 700);
       }
-      setAuthenticatedSeller(matched);
-      setPinError("");
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("mewmao_active_seller_id", matched.id);
-      }
-    } else {
-      setPinError(
-        isEn
-          ? "Incorrect PIN or not yet issued by Admin. Please try again!"
-          : "Mã PIN không đúng hoặc chưa được Admin cấp. Vui lòng thử lại!"
-      );
-      setTimeout(() => {
-        setPinDigits(["", "", "", "", "", ""]);
-        inputRefs.current[0]?.focus();
-      }, 700);
+    } catch {
+      setPinError(isEn ? "Connection error" : "Lỗi kết nối máy chủ. Vui lòng thử lại!");
     }
   };
 
@@ -222,8 +225,13 @@ export default function SellerPortalPage() {
     verifyPin(pin);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/seller/me", { method: "POST" });
+    } catch {}
     setAuthenticatedSeller(null);
+    setLoadedSellerOrders([]);
+    setLoadedSellerPayouts([]);
     setPinDigits(["", "", "", "", "", ""]);
     setPinError("");
     if (typeof window !== "undefined") {
@@ -245,7 +253,7 @@ export default function SellerPortalPage() {
     setTimeout(() => setCopiedCode(false), 2500);
   };
 
-  const handleRequestPayout = (e: React.FormEvent) => {
+  const handleRequestPayout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentSeller) return;
     const amount = Number(payoutAmount);
@@ -266,7 +274,7 @@ export default function SellerPortalPage() {
       return;
     }
 
-    const success = requestPayout(currentSeller.id, amount);
+    const success = await requestPayout(currentSeller.id, amount);
     if (success) {
       setPayoutMessage(
         isEn
@@ -274,6 +282,7 @@ export default function SellerPortalPage() {
           : "Đã gửi yêu cầu rút hoa hồng thành công! Admin sẽ duyệt và chuyển khoản."
       );
       setPayoutAmount("");
+      await refreshSellerSession();
       setTimeout(() => setPayoutMessage(""), 5000);
     } else {
       setPayoutMessage(

@@ -1,21 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { sanitizeSupabaseUrl, sanitizeSupabaseKey } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/server-supabase";
+import { verifyAdminSession } from "@/lib/auth";
 import { Voucher } from "@/types";
 
-function getSupabaseAdmin() {
-  const supabaseUrl = sanitizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const fallbackKey = Buffer.from(
-    "c2Jfc2VjcmV0X2tkYjlpcUwwTVpmbTlYbkJ3dm54Q1FfVU1LQjFVeTk=",
-    "base64"
-  ).toString("utf-8");
-  const supabaseKey = sanitizeSupabaseKey(
-    process.env.SUPABASE_SERVICE_ROLE_KEY || fallbackKey
-  );
-  return createClient(supabaseUrl, supabaseKey);
-}
-
-// Helper: Lấy danh sách voucher từ record dự phòng trong bảng sellers
+// Helper: Read vouchers from system-vouchers fallback record
 async function getVouchersFromFallback(supabase: any): Promise<Voucher[]> {
   try {
     const { data } = await supabase
@@ -34,7 +22,7 @@ async function getVouchersFromFallback(supabase: any): Promise<Voucher[]> {
   return [];
 }
 
-// Helper: Lưu danh sách voucher vào record dự phòng trong bảng sellers
+// Helper: Save vouchers to system-vouchers fallback record
 async function saveVouchersToFallback(supabase: any, vouchers: Voucher[]) {
   try {
     await supabase.from("sellers").upsert({
@@ -51,16 +39,23 @@ async function saveVouchersToFallback(supabase: any, vouchers: Voucher[]) {
   }
 }
 
-// GET all vouchers (hỗ trợ cả bảng vouchers riêng và fallback system-vouchers)
-export async function GET() {
+// GET all vouchers (public can see active vouchers, Admin can see all)
+export async function GET(request: Request) {
   try {
     const supabase = getSupabaseAdmin();
+    const isAdmin = verifyAdminSession(request);
 
-    // 1. Thử đọc từ bảng vouchers riêng
-    const { data, error } = await supabase
+    // 1. Try reading from vouchers table
+    let query = supabase
       .from("vouchers")
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (!isAdmin) {
+      query = query.eq("status", "active");
+    }
+
+    const { data, error } = await query;
 
     if (!error && Array.isArray(data) && data.length > 0) {
       const mapped: Voucher[] = data.map((row: any) => ({
@@ -80,25 +75,77 @@ export async function GET() {
       return NextResponse.json({ data: mapped });
     }
 
-    // 2. Nếu bảng riêng chưa có hoặc rỗng, đọc từ fallback sellers
-    const fallbackList = await getVouchersFromFallback(supabase);
-    return NextResponse.json({ data: fallbackList });
+    // 2. Fallback read
+    let fallbackList = await getVouchersFromFallback(supabase);
+    if (!fallbackList || fallbackList.length === 0) {
+      fallbackList = [
+        {
+          id: "voucher-1",
+          code: "MEWMAO20K",
+          name: "Ưu Đãi Trải Nghiệm Mơ Tây Bắc",
+          discountType: "fixed",
+          discountValue: 20000,
+          startDate: "2026-01-01",
+          endDate: "2026-12-31",
+          minOrderValue: 0,
+          usageLimit: 500,
+          usedCount: 0,
+          status: "active",
+        },
+        {
+          id: "voucher-2",
+          code: "CHAOMUNG10",
+          name: "Giảm 10% Cho Khách Hàng Thân Thiết",
+          discountType: "percent",
+          discountValue: 10,
+          startDate: "2026-01-01",
+          minOrderValue: 0,
+          usageLimit: 200,
+          usedCount: 0,
+          status: "active",
+        },
+        {
+          id: "voucher-3",
+          code: "TET2026",
+          name: "Voucher Lộc Xuân Rượu Mơ",
+          discountType: "fixed",
+          discountValue: 30000,
+          startDate: "2026-01-01",
+          endDate: "2026-12-31",
+          minOrderValue: 0,
+          usageLimit: 100,
+          usedCount: 0,
+          status: "active",
+        },
+      ];
+    }
+
+    const resultList = isAdmin
+      ? fallbackList
+      : fallbackList.filter((v) => v.status === "active" || !v.status);
+
+    return NextResponse.json({ data: resultList });
   } catch (err: any) {
     return NextResponse.json({ data: [], error: err.message });
   }
 }
 
-// POST create voucher hoặc đồng bộ toàn bộ danh sách
+// POST create voucher - strictly protected for Admin
 export async function POST(request: Request) {
   try {
+    if (!verifyAdminSession(request)) {
+      return NextResponse.json(
+        { error: "Yêu cầu quyền Quản trị viên để tạo voucher" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const supabase = getSupabaseAdmin();
 
-    // Trường hợp 1: Nhận danh sách đầy đủ { vouchers: [...] }
     if (body.vouchers && Array.isArray(body.vouchers)) {
       await saveVouchersToFallback(supabase, body.vouchers);
 
-      // Thử đồng bộ từng bản ghi vào bảng vouchers nếu bảng tồn tại
       try {
         for (const v of body.vouchers) {
           await supabase.from("vouchers").upsert({
@@ -120,11 +167,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, count: body.vouchers.length });
     }
 
-    // Trường hợp 2: Nhận 1 voucher mới
     const newVoucher: Voucher = body;
     const currentList = await getVouchersFromFallback(supabase);
-    const existingIdx = currentList.findIndex((v) => v.id === newVoucher.id || v.code === newVoucher.code);
-    
+    const existingIdx = currentList.findIndex(
+      (v) => v.id === newVoucher.id || v.code === newVoucher.code
+    );
+
     let updatedList: Voucher[];
     if (existingIdx >= 0) {
       updatedList = [...currentList];
@@ -135,7 +183,6 @@ export async function POST(request: Request) {
 
     await saveVouchersToFallback(supabase, updatedList);
 
-    // Lưu vào bảng riêng nếu có
     try {
       await supabase.from("vouchers").upsert({
         id: newVoucher.id,
@@ -158,9 +205,16 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH update voucher
+// PATCH update voucher - strictly protected for Admin
 export async function PATCH(request: Request) {
   try {
+    if (!verifyAdminSession(request)) {
+      return NextResponse.json(
+        { error: "Yêu cầu quyền Quản trị viên để cập nhật voucher" },
+        { status: 401 }
+      );
+    }
+
     const { id, updates } = await request.json();
     if (!id || !updates) {
       return NextResponse.json({ error: "Missing id or updates" }, { status: 400 });
@@ -168,7 +222,9 @@ export async function PATCH(request: Request) {
     const supabase = getSupabaseAdmin();
 
     const currentList = await getVouchersFromFallback(supabase);
-    const updatedList = currentList.map((v) => (v.id === id ? { ...v, ...updates } : v));
+    const updatedList = currentList.map((v) =>
+      v.id === id ? { ...v, ...updates } : v
+    );
     await saveVouchersToFallback(supabase, updatedList);
 
     try {
@@ -176,11 +232,14 @@ export async function PATCH(request: Request) {
       if (updates.code) dbUpdates.code = updates.code;
       if (updates.name) dbUpdates.name = updates.name;
       if (updates.discountType) dbUpdates.discount_type = updates.discountType;
-      if (updates.discountValue !== undefined) dbUpdates.discount_value = updates.discountValue;
+      if (updates.discountValue !== undefined)
+        dbUpdates.discount_value = updates.discountValue;
       if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
       if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
-      if (updates.minOrderValue !== undefined) dbUpdates.min_order_value = updates.minOrderValue;
-      if (updates.usageLimit !== undefined) dbUpdates.usage_limit = updates.usageLimit;
+      if (updates.minOrderValue !== undefined)
+        dbUpdates.min_order_value = updates.minOrderValue;
+      if (updates.usageLimit !== undefined)
+        dbUpdates.usage_limit = updates.usageLimit;
       if (updates.usedCount !== undefined) dbUpdates.used_count = updates.usedCount;
       if (updates.status) dbUpdates.status = updates.status;
 
@@ -193,9 +252,16 @@ export async function PATCH(request: Request) {
   }
 }
 
-// DELETE a voucher
+// DELETE a voucher - strictly protected for Admin
 export async function DELETE(request: Request) {
   try {
+    if (!verifyAdminSession(request)) {
+      return NextResponse.json(
+        { error: "Yêu cầu quyền Quản trị viên để xóa voucher" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) {

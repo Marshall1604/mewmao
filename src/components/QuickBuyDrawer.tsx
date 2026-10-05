@@ -66,13 +66,24 @@ export default function QuickBuyDrawer() {
     }
   }, [selectedVoucherCode, isQuickBuyOpen, cartQuantity, product.price]);
 
-  // Kiểm tra tính hợp lệ của mã Đại sứ (thời gian thực)
+  // Kiểm tra tính hợp lệ của mã Đại sứ (thời gian thực qua API an toàn)
   const currentCode = manualRefCode.trim().toUpperCase();
-  const isValidCode = currentCode
-    ? sellers.some(
-        (s) => s.affiliateCode && s.affiliateCode.trim().toUpperCase() === currentCode
-      )
-    : false;
+  const [isValidCode, setIsValidCode] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!currentCode) {
+      setIsValidCode(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`/api/sellers?ref=${encodeURIComponent(currentCode)}`)
+        .then((r) => r.json())
+        .then((data) => setIsValidCode(Boolean(data.valid)))
+        .catch(() => setIsValidCode(false));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [currentCode]);
 
   const subtotal = product.price * cartQuantity;
   const totalAmount = Math.max(0, subtotal - voucherDiscount);
@@ -122,7 +133,7 @@ export default function QuickBuyDrawer() {
 
   if (!isQuickBuyOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || !address.trim()) {
       alert(
@@ -141,18 +152,29 @@ export default function QuickBuyDrawer() {
       setActiveRefCode(finalRefCode);
     }
 
-    const order = placeOrder({
-      customerName: name,
-      customerPhone: phone,
-      customerAddress: address,
-      customerNote: note,
-      quantity: cartQuantity,
-      paymentMethod: "cod",
-      affiliateCode: finalRefCode || undefined,
-      voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
-      discountAmount: appliedVoucher ? voucherDiscount : 0,
-    });
-    setConfirmedOrder(order);
+    setIsSubmitting(true);
+    try {
+      const order = await placeOrder({
+        customerName: name,
+        customerPhone: phone,
+        customerAddress: address,
+        customerNote: note,
+        quantity: cartQuantity,
+        paymentMethod: "cod",
+        affiliateCode: finalRefCode || undefined,
+        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+      });
+      setConfirmedOrder(order);
+    } catch (err: any) {
+      alert(
+        err.message ||
+          (isEn
+            ? "Order could not be processed. Please try again."
+            : "Đặt hàng không thành công. Vui lòng thử lại.")
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -527,9 +549,17 @@ export default function QuickBuyDrawer() {
                 </div>
                 <button
                   type="submit"
-                  className="btn-mewmao-black w-full justify-center py-4 text-xs font-bold uppercase tracking-wider shadow-lg active:scale-98 transition-all"
+                  disabled={isSubmitting}
+                  className="btn-mewmao-black w-full justify-center py-4 text-xs font-bold uppercase tracking-wider shadow-lg active:scale-98 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  BUY — {totalAmount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫ <ArrowRight className="w-4 h-4 ml-1" />
+                  {isSubmitting ? (
+                    isEn ? "PROCESSING ORDER..." : "ĐANG XỬ LÝ ĐƠN HÀNG..."
+                  ) : (
+                    <>
+                      BUY — {totalAmount.toLocaleString(isEn ? "en-US" : "vi-VN")}₫{" "}
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </>
+                  )}
                 </button>
                 <div className="flex items-center justify-center gap-1.5 text-[10px] text-zinc-400 font-mono">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />

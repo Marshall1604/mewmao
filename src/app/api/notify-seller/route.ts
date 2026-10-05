@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyAdminSession } from "@/lib/auth";
 
 interface NotifySellerPayload {
   name: string;
@@ -13,6 +14,13 @@ interface NotifySellerPayload {
 
 export async function POST(req: Request) {
   try {
+    if (!verifyAdminSession(req)) {
+      return NextResponse.json(
+        { error: "Yêu cầu quyền Quản trị viên để gửi thông báo" },
+        { status: 401 }
+      );
+    }
+
     const body: NotifySellerPayload = await req.json();
     const {
       name,
