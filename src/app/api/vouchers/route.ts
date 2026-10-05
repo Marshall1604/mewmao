@@ -43,7 +43,7 @@ async function saveVouchersToFallback(supabase: any, vouchers: Voucher[]) {
       affiliate_code: "SYS_VOUCHERS",
       pin: "000000",
       commission_rate: 0,
-      status: "system",
+      status: "system_vouchers",
       discount_code: JSON.stringify(vouchers),
     });
   } catch (e) {

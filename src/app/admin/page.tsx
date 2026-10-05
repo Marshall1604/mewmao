@@ -349,10 +349,34 @@ export default function AdminPage() {
 
   // ── 7. INVENTORY QUICK ADJUST ──
   const [stockInput, setStockInput] = useState<number>(product.stock);
+  const [importStockInput, setImportStockInput] = useState<number>(50);
+  const [isSavingStock, setIsSavingStock] = useState<boolean>(false);
+  const [stockSuccessMsg, setStockSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setStockInput(product.stock);
   }, [product.stock]);
+
+  const handleSaveStock = async (newAmount: number, isImport = false) => {
+    if (newAmount < 0) {
+      alert("Số lượng kho không hợp lệ");
+      return;
+    }
+    setIsSavingStock(true);
+    try {
+      await updateStock(newAmount);
+      setStockSuccessMsg(
+        isImport
+          ? `Đã nhập thêm thành công! Tổng tồn kho hiện tại: ${newAmount} chai.`
+          : `Đã cập nhật tồn kho thành công: ${newAmount} chai.`
+      );
+      setTimeout(() => setStockSuccessMsg(null), 4000);
+    } catch (err) {
+      alert("Lỗi khi lưu tồn kho, vui lòng thử lại.");
+    } finally {
+      setIsSavingStock(false);
+    }
+  };
 
   // Calculations
   const totalRevenue = orders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -2206,54 +2230,127 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Adjust Stock Form */}
-                <div className="pt-4 border-t border-zinc-100 space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900">
-                    Cập Nhật Lại Số Lượng Tồn Kho
-                  </h4>
-                  
-                  <div className="flex flex-wrap items-center gap-3">
-                    <input
-                      type="number"
-                      min={0}
-                      value={stockInput}
-                      onChange={(e) => setStockInput(Number(e.target.value))}
-                      className="w-36 px-4 py-2 text-sm font-bold rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-950"
-                    />
+                {/* Notification Banner */}
+                {stockSuccessMsg && (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between animate-fade-in shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{stockSuccessMsg}</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={async () => {
-                        await updateStock(stockInput);
-                        alert(`Đã lưu tồn kho mới thành công: ${stockInput} chai!`);
-                      }}
-                      className="btn-mewmao-black py-2 px-4 text-xs font-bold cursor-pointer"
+                      onClick={() => setStockSuccessMsg(null)}
+                      className="text-emerald-600 hover:text-emerald-900"
                     >
-                      Lưu Tồn Kho Mới
+                      <X className="w-4 h-4" />
                     </button>
+                  </div>
+                )}
 
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const updated = product.stock + 50;
-                          setStockInput(updated);
-                          await updateStock(updated);
-                        }}
-                        className="px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700 cursor-pointer"
-                      >
-                        +50 chai mẻ mới
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const updated = product.stock + 100;
-                          setStockInput(updated);
-                          await updateStock(updated);
-                        }}
-                        className="px-3 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 text-zinc-700 cursor-pointer"
-                      >
-                        +100 chai mẻ mới
-                      </button>
+                {/* 2 Chức Năng Quản Lý Kho Rượu: Nhập Mẻ Mới & Điều Chỉnh Tồn Kho */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+                  {/* BẢNG 1: NHẬP THÊM CHAI RƯỢU MỚI (CỘNG DỒN) */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-zinc-50/70 border border-zinc-200/80 space-y-4">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-mewmao-orange font-bold block">
+                        CHỨC NĂNG 1
+                      </span>
+                      <h4 className="text-sm font-bold text-zinc-950">
+                        Nhập Thêm Chai Rượu Mới (Nhập Mẻ)
+                      </h4>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                        Cộng dồn số chai mới nấu/ủ xong vào tổng kho hiện tại.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          value={importStockInput || ""}
+                          onChange={(e) => setImportStockInput(Math.max(1, Number(e.target.value)))}
+                          placeholder="Số chai nhập thêm"
+                          className="w-36 px-3.5 py-2.5 text-sm font-bold rounded-xl border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-950 bg-white"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSavingStock}
+                          onClick={() => handleSaveStock(product.stock + (importStockInput || 0), true)}
+                          className="btn-mewmao-black py-2.5 px-4 text-xs font-bold disabled:opacity-60 cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          {isSavingStock ? "Đang lưu..." : `Nhập Thêm (+${importStockInput || 0})`}
+                        </button>
+                      </div>
+
+                      {/* Nút chọn nhanh */}
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="text-[11px] text-zinc-400 mr-1">Mức nhanh:</span>
+                        {[20, 50, 100, 200, 500].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setImportStockInput(amt)}
+                            className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                              importStockInput === amt
+                                ? "bg-zinc-900 text-white border-zinc-900"
+                                : "bg-white border-zinc-200 hover:bg-zinc-100 text-zinc-700"
+                            }`}
+                          >
+                            +{amt}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Tóm tắt dự tính */}
+                      <div className="p-3 rounded-xl bg-white border border-zinc-200/80 text-[11px] text-zinc-600 flex items-center justify-between font-mono">
+                        <span>Kho hiện tại: <b>{product.stock}</b></span>
+                        <span>+ Nhập thêm: <b>{importStockInput || 0}</b></span>
+                        <span className="text-emerald-700 font-bold">
+                          = Kho mới: {product.stock + (importStockInput || 0)} chai
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BẢNG 2: THIẾT LẬP LẠI CHÍNH XÁC SỐ LƯỢNG TỒN KHO (KIỂM KÊ) */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-zinc-50/70 border border-zinc-200/80 space-y-4">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-bold block">
+                        CHỨC NĂNG 2
+                      </span>
+                      <h4 className="text-sm font-bold text-zinc-950">
+                        Cài Đặt Lại Tổng Số Lượng Tồn Kho
+                      </h4>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                        Ghi đè số lượng tồn kho thực tế chính xác (dùng khi kiểm kê định kỳ).
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={stockInput}
+                          onChange={(e) => setStockInput(Math.max(0, Number(e.target.value)))}
+                          placeholder="Số lượng tồn kho"
+                          className="w-36 px-3.5 py-2.5 text-sm font-bold rounded-xl border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-950 bg-white"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSavingStock}
+                          onClick={() => handleSaveStock(stockInput, false)}
+                          className="px-4 py-2.5 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-900 text-zinc-900 hover:text-white text-xs font-bold disabled:opacity-60 cursor-pointer shadow-xs transition-all"
+                        >
+                          {isSavingStock ? "Đang lưu..." : "Lưu Số Tồn Kho Này"}
+                        </button>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-white border border-zinc-200/80 text-[11px] text-zinc-500">
+                        Hệ thống sẽ đồng bộ con số này lên cơ sở dữ liệu Supabase và cập nhật tức thì trên toàn website.
+                      </div>
                     </div>
                   </div>
                 </div>

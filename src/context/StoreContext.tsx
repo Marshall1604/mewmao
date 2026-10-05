@@ -309,9 +309,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (dbSellers) {
-        // Extract system inventory if present
+        // Extract system inventory strictly by id
         const systemInventory = dbSellers.find(
-          (row: any) => row.id === "system-inventory" || row.status === "system"
+          (row: any) => row.id === "system-inventory"
         );
         if (systemInventory) {
           const syncedStock = Number(systemInventory.bottles_sold_count);
@@ -319,7 +319,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             setProduct((prev) => ({
               ...prev,
               stock: syncedStock,
-              price: Number(systemInventory.balance) || prev.price,
+              price: Number(systemInventory.balance) > 0 ? Number(systemInventory.balance) : prev.price,
             }));
             if (typeof window !== "undefined") {
               localStorage.setItem("mewmao_product_stock", syncedStock.toString());
@@ -327,9 +327,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Filter out system row so sellers only has real sellers
+        // Filter out system rows so sellers only has real human sellers
         const humanSellers = dbSellers.filter(
-          (row: any) => row.id !== "system-inventory" && row.status !== "system"
+          (row: any) =>
+            row.id !== "system-inventory" &&
+            row.id !== "system-vouchers" &&
+            row.status !== "system" &&
+            row.status !== "system_inventory" &&
+            row.status !== "system_vouchers"
         );
 
         const mappedSellers: Seller[] = humanSellers.map((row: any) => ({
@@ -1269,8 +1274,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           affiliate_code: "SYS_STOCK",
           pin: "000000",
           bottles_sold_count: validStock,
-          balance: product.price,
-          status: "system",
+          balance: product.price > 0 ? product.price : 289000,
+          status: "system_inventory",
         });
       if (error) {
         console.error("Error saving inventory to Supabase:", error);
