@@ -1875,7 +1875,17 @@ export default function AdminPage() {
                       Tổng cộng: <strong>{sellers.length}</strong> đại sứ đang hoạt động
                     </span>
 
+                    <button
+                      type="button"
+                      onClick={handleOpenCreateSeller}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-950 hover:bg-black text-white font-bold transition-all shadow-xs shrink-0 text-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Thêm Seller Mới</span>
+                    </button>
+
                     {/* Chuyển đổi hiển thị trên Điện thoại: Thẻ / Bảng */}
+
                     <div className="flex sm:hidden items-center gap-0.5 border border-zinc-200 rounded-lg p-0.5 bg-zinc-100 text-[10px] shrink-0 font-mono">
                       <button
                         type="button"
@@ -2061,9 +2071,24 @@ export default function AdminPage() {
                       </div>
                     );
                   })}
+
+                  {filteredSellers.length === 0 && (
+                    <div className="text-center py-10 px-4 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50 space-y-3">
+                      <p className="text-zinc-500 text-xs">Chưa có Seller nào trong danh sách.</p>
+                      <button
+                        type="button"
+                        onClick={handleOpenCreateSeller}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-950 text-white text-xs font-bold hover:bg-black"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tạo Mới Seller Ngay</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. Flat Sellers Wide Table (Dàn rộng tối đa cho máy tính) */}
+
                 <div className={`overflow-x-auto border border-zinc-200/80 rounded-2xl bg-white shadow-xs w-full ${mobileLayout === "table" ? "block" : "hidden sm:block"}`}>
                   <table className="w-full min-w-full text-left text-xs border-collapse">
                     <thead>
@@ -2284,7 +2309,23 @@ export default function AdminPage() {
                         </tr>
                       );
                     })}
+                    {filteredSellers.length === 0 && (
+                      <tr>
+                        <td colSpan={11} className="py-12 text-center text-zinc-400">
+                          <p className="text-sm font-medium mb-3">Chưa có Seller nào phù hợp với bộ lọc.</p>
+                          <button
+                            type="button"
+                            onClick={handleOpenCreateSeller}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-950 text-white text-xs font-bold hover:bg-black shadow-xs transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tạo Mới Seller Ngay</span>
+                          </button>
+                        </td>
+                      </tr>
+                    )}
                     </tbody>
+
                   </table>
                 </div>
 
