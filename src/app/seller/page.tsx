@@ -93,19 +93,18 @@ export default function SellerPortalPage() {
     (sum, o) => sum + o.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
     0
   );
-  const totalBottlesSold = Math.max(
-    bottlesSoldFromOrders,
-    currentSeller?.bottlesSoldCount || 0
-  );
+  const totalBottlesSold = sellerOrders.length > 0
+    ? bottlesSoldFromOrders
+    : (currentSeller?.bottlesSoldCount || 0);
 
   const totalCommissionFromOrders = sellerOrders.reduce(
     (sum, o) => sum + (o.sellerCommission || 0),
     0
   );
-  const totalCommissionEarned = Math.max(
-    totalCommissionFromOrders,
-    currentSeller?.totalEarned || 0
-  );
+  const totalCommissionEarned = sellerOrders.length > 0
+    ? totalCommissionFromOrders
+    : (currentSeller?.totalEarned || 0);
+
 
   // Filter payouts requested by this seller
   const sellerPayouts = loadedSellerPayouts;

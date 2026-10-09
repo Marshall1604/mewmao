@@ -73,6 +73,32 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin();
     const isAdmin = verifyAdminSession(request);
 
+    if (!body.name || !body.name.trim()) {
+      return NextResponse.json(
+        { error: "Vui lòng nhập họ và tên của Seller" },
+        { status: 400 }
+      );
+    }
+
+    if (body.affiliate_code) {
+      body.affiliate_code = body.affiliate_code.trim().toUpperCase();
+      // Check duplicate affiliate code
+      const { data: existing } = await supabase
+        .from("sellers")
+        .select("id, name, affiliate_code")
+        .ilike("affiliate_code", body.affiliate_code)
+        .maybeSingle();
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: `Mã Affiliate "${body.affiliate_code}" đã tồn tại (thuộc về "${existing.name}"). Vui lòng chọn mã khác!`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // If not Admin, enforce 'pending' status for self-registration
     if (!isAdmin) {
       body.status = "pending";
@@ -94,6 +120,14 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("API create seller error:", error);
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            error: `Mã Affiliate "${body.affiliate_code || ""}" đã được sử dụng. Vui lòng chọn mã khác!`,
+          },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ success: true, data });
@@ -101,6 +135,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
 
 // PATCH update seller
 export async function PATCH(request: Request) {

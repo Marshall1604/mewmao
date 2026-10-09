@@ -340,6 +340,64 @@ export async function DELETE(request: Request) {
     }
 
     const supabase = getSupabaseAdmin();
+
+    // 1. Fetch order details before deleting to revert stock and seller stats
+    const { data: order } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (order) {
+      // Revert stock in system-inventory
+      const bottleQty = Array.isArray(order.items)
+        ? order.items.reduce(
+            (sum: number, it: any) => sum + (Number(it.quantity) || 1),
+            0
+          )
+        : 1;
+
+      const { data: invRow } = await supabase
+        .from("sellers")
+        .select("bottles_sold_count")
+        .eq("id", "system-inventory")
+        .single();
+
+      if (invRow) {
+        await supabase
+          .from("sellers")
+          .update({
+            bottles_sold_count: (Number(invRow.bottles_sold_count) || 0) + bottleQty,
+          })
+          .eq("id", "system-inventory");
+      }
+
+      // Revert seller commission and bottles sold if order had affiliate code
+      if (order.affiliate_code) {
+        const { data: sellerRow } = await supabase
+          .from("sellers")
+          .select("*")
+          .ilike("affiliate_code", order.affiliate_code)
+          .single();
+
+        if (sellerRow) {
+          const comm = Number(order.seller_commission) || 0;
+          await supabase
+            .from("sellers")
+            .update({
+              balance: Math.max(0, (Number(sellerRow.balance) || 0) - comm),
+              total_earned: Math.max(0, (Number(sellerRow.total_earned) || 0) - comm),
+              orders_count: Math.max(0, (Number(sellerRow.orders_count) || 0) - 1),
+              bottles_sold_count: Math.max(
+                0,
+                (Number(sellerRow.bottles_sold_count) || 0) - bottleQty
+              ),
+            })
+            .eq("id", sellerRow.id);
+        }
+      }
+    }
+
     const { error } = await supabase.from("orders").delete().eq("id", id);
 
     if (error) {
@@ -351,3 +409,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

@@ -67,33 +67,62 @@ export async function GET(request: Request) {
           s.status !== "system_inventory" &&
           s.status !== "system_vouchers"
       )
-      .map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        email: s.email || "",
-        phone: s.phone || "",
-        role: "seller",
-        status: s.status || "active",
-        affiliateCode: s.affiliate_code,
-        pin: s.pin, // Admin can view/edit PIN
-        commissionRate:
-          s.commission_rate !== null && s.commission_rate !== undefined
-            ? Number(s.commission_rate)
-            : 0.15,
-        promoDiscountPerBottle: Number(s.discount_percent) || 0,
-        balance: Number(s.balance) || 0,
-        totalWithdrawn: Number(s.total_withdrawn) || 0,
-        totalEarned: Number(s.total_earned) || 0,
-        ordersCount: Number(s.orders_count) || 0,
-        bottlesSoldCount: Number(s.bottles_sold_count) || 0,
-        clicksCount: 0,
-        createdAt: s.created_at ? s.created_at.split("T")[0] : "",
-        bankInfo: {
-          bankName: s.bank_name || "",
-          accountNumber: s.account_number || "",
-          accountHolder: s.account_holder || "",
-        },
-      }));
+      .map((s: any) => {
+        const sOrders = (ordersRes.data || []).filter(
+          (o: any) =>
+            o.affiliate_code &&
+            o.affiliate_code.trim().toUpperCase() === (s.affiliate_code || "").trim().toUpperCase()
+        );
+        const ordersBottles = sOrders.reduce(
+          (sum: number, o: any) =>
+            sum +
+            (Array.isArray(o.items)
+              ? o.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 1), 0)
+              : 0),
+          0
+        );
+        const ordersCommission = sOrders.reduce(
+          (sum: number, o: any) => sum + (Number(o.seller_commission) || 0),
+          0
+        );
+        const totalWithdrawn = Number(s.total_withdrawn) || 0;
+        const bottlesSoldCount = sOrders.length > 0 ? ordersBottles : (Number(s.bottles_sold_count) || 0);
+        const ordersCount = sOrders.length > 0 ? sOrders.length : (Number(s.orders_count) || 0);
+        const totalEarned = sOrders.length > 0 ? ordersCommission : (Number(s.total_earned) || 0);
+        const balance = Math.max(
+          0,
+          (sOrders.length > 0 ? totalEarned : (Number(s.balance) || 0)) - totalWithdrawn
+        );
+
+        return {
+          id: s.id,
+          name: s.name,
+          email: s.email || "",
+          phone: s.phone || "",
+          role: "seller",
+          status: s.status || "active",
+          affiliateCode: s.affiliate_code,
+          pin: s.pin, // Admin can view/edit PIN
+          commissionRate:
+            s.commission_rate !== null && s.commission_rate !== undefined
+              ? Number(s.commission_rate)
+              : 0.15,
+          promoDiscountPerBottle: Number(s.discount_percent) || 0,
+          balance,
+          totalWithdrawn,
+          totalEarned,
+          ordersCount,
+          bottlesSoldCount,
+          clicksCount: 0,
+          createdAt: s.created_at ? s.created_at.split("T")[0] : "",
+          bankInfo: {
+            bankName: s.bank_name || "",
+            accountNumber: s.account_number || "",
+            accountHolder: s.account_holder || "",
+          },
+        };
+      });
+
 
     const orders = (ordersRes.data || []).map((o: any) => ({
       id: o.id,

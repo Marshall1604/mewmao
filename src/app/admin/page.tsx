@@ -121,6 +121,10 @@ export default function AdminPage() {
           setIsUnlocked(true);
           if (typeof window !== "undefined") {
             sessionStorage.setItem("mewmao_admin_session_unlocked", "true");
+            if (data.token) {
+              sessionStorage.setItem("mewmao_admin_token", data.token);
+              localStorage.setItem("mewmao_admin_token", data.token);
+            }
           }
           refreshData();
         } else {
@@ -150,8 +154,11 @@ export default function AdminPage() {
     setPinDigits(["", "", "", "", "", ""]);
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("mewmao_admin_session_unlocked");
+      sessionStorage.removeItem("mewmao_admin_token");
+      localStorage.removeItem("mewmao_admin_token");
     }
   };
+
 
   // ── MANUAL & AUTO SYNC WITH SUPABASE ──
   const handleManualRefresh = async () => {
@@ -322,7 +329,9 @@ export default function AdminPage() {
   // ── 5. MODAL CREATE / EDIT SELLER ──
   const [sellerModalOpen, setSellerModalOpen] = useState(false);
   const [editingSellerId, setEditingSellerId] = useState<string | null>(null);
+  const [isSavingSeller, setIsSavingSeller] = useState(false);
   const [commissionAmountInput, setCommissionAmountInput] = useState<string>("");
+
   const [commissionPercentInput, setCommissionPercentInput] = useState<string>("15");
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"all" | "pending" | "active">("all");
   const [sellerForm, setSellerForm] = useState<{
@@ -638,7 +647,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleSaveSeller = (e: React.FormEvent) => {
+  const handleSaveSeller = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sellerForm.name.trim()) {
       alert("Vui lòng nhập họ và tên Seller");
@@ -658,58 +667,70 @@ export default function AdminPage() {
 
     const finalStatus = sellerForm.status === "pending" ? "active" : (sellerForm.status || "active");
 
-    if (editingSellerId) {
-      updateSeller(editingSellerId, {
-        name: sellerForm.name.trim(),
-        email: sellerForm.email.trim(),
-        phone: sellerForm.phone.trim(),
-        affiliateCode: finalAffiliateCode,
-        pin: sellerPin,
-        status: finalStatus,
-        commissionRate: Number(sellerForm.commissionRate) / 100,
-        promoDiscountPerBottle: 0,
-        bankInfo: {
-          bankName: sellerForm.bankName,
-          accountNumber: sellerForm.accountNumber,
-          accountHolder: sellerForm.accountHolder.toUpperCase(),
-        },
-      });
-    } else {
-      addSeller({
-        name: sellerForm.name.trim(),
-        email: sellerForm.email.trim(),
-        phone: sellerForm.phone.trim(),
-        affiliateCode: finalAffiliateCode,
-        pin: sellerPin,
-        status: finalStatus,
-        commissionRate: Number(sellerForm.commissionRate) / 100,
-        promoDiscountPerBottle: 0,
-        bankInfo: {
-          bankName: sellerForm.bankName,
-          accountNumber: sellerForm.accountNumber,
-          accountHolder: sellerForm.accountHolder.toUpperCase(),
-        },
-      });
-    }
-
-    setSellerModalOpen(false);
-
-    // Tự động gửi Email & chuẩn bị tin nhắn SMS cho Seller ngay khi lưu
-    if (autoNotifySeller && (sellerForm.email.trim() || sellerForm.phone.trim())) {
-      handleSendSellerNotification(
-        {
+    setIsSavingSeller(true);
+    try {
+      if (editingSellerId) {
+        await updateSeller(editingSellerId, {
           name: sellerForm.name.trim(),
           email: sellerForm.email.trim(),
           phone: sellerForm.phone.trim(),
           affiliateCode: finalAffiliateCode,
           pin: sellerPin,
-          commissionRatePercent: Number(sellerForm.commissionRate),
-          commissionAmount: Math.round(product.price * (Number(sellerForm.commissionRate) / 100)),
-        },
-        true
-      );
+          status: finalStatus,
+          commissionRate: Number(sellerForm.commissionRate) / 100,
+          promoDiscountPerBottle: 0,
+          bankInfo: {
+            bankName: sellerForm.bankName,
+            accountNumber: sellerForm.accountNumber,
+            accountHolder: sellerForm.accountHolder.toUpperCase(),
+          },
+        });
+        alert(`Đã cập nhật thông tin Seller "${sellerForm.name.trim()}" thành công!`);
+      } else {
+        await addSeller({
+          name: sellerForm.name.trim(),
+          email: sellerForm.email.trim(),
+          phone: sellerForm.phone.trim(),
+          affiliateCode: finalAffiliateCode,
+          pin: sellerPin,
+          status: finalStatus,
+          commissionRate: Number(sellerForm.commissionRate) / 100,
+          promoDiscountPerBottle: 0,
+          bankInfo: {
+            bankName: sellerForm.bankName,
+            accountNumber: sellerForm.accountNumber,
+            accountHolder: sellerForm.accountHolder.toUpperCase(),
+          },
+        });
+        alert(`Đã tạo Seller mới "${sellerForm.name.trim()}" (Mã Affiliate: ${finalAffiliateCode}) thành công!`);
+      }
+
+      setSellerModalOpen(false);
+      await refreshData();
+
+      // Tự động gửi Email & chuẩn bị tin nhắn SMS cho Seller ngay khi lưu
+      if (autoNotifySeller && (sellerForm.email.trim() || sellerForm.phone.trim())) {
+        handleSendSellerNotification(
+          {
+            name: sellerForm.name.trim(),
+            email: sellerForm.email.trim(),
+            phone: sellerForm.phone.trim(),
+            affiliateCode: finalAffiliateCode,
+            pin: sellerPin,
+            commissionRatePercent: Number(sellerForm.commissionRate),
+            commissionAmount: Math.round(product.price * (Number(sellerForm.commissionRate) / 100)),
+          },
+          true
+        );
+      }
+    } catch (err: any) {
+      console.error("Lỗi khi lưu Seller:", err);
+      alert(err.message || "Lỗi khi lưu Seller. Vui lòng kiểm tra lại!");
+    } finally {
+      setIsSavingSeller(false);
     }
   };
+
 
   const handleDeleteSeller = async (sellerId: string, sellerName: string) => {
     if (confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn Seller "${sellerName}" khỏi hệ thống?`)) {
@@ -1681,18 +1702,17 @@ export default function AdminPage() {
                       const viewingOrders = orders.filter(
                         (o) => o.affiliateCode && o.affiliateCode.trim().toUpperCase() === viewingSeller.affiliateCode.trim().toUpperCase()
                       );
-                      const viewingBottles = Math.max(
-                        viewingSeller.bottlesSoldCount || 0,
-                        viewingOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
-                      );
-                      const viewingCommission = Math.max(
-                        viewingSeller.totalEarned || 0,
-                        viewingOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
-                      );
+                      const viewingBottles = viewingOrders.length > 0
+                        ? viewingOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
+                        : (viewingSeller.bottlesSoldCount || 0);
+                      const viewingCommission = viewingOrders.length > 0
+                        ? viewingOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
+                        : (viewingSeller.totalEarned || 0);
                       const viewingBalance = Math.max(
-                        viewingSeller.balance || 0,
-                        viewingCommission - (viewingSeller.totalWithdrawn || 0)
+                        0,
+                        (viewingOrders.length > 0 ? viewingCommission : (viewingSeller.balance || 0)) - (viewingSeller.totalWithdrawn || 0)
                       );
+
 
                       return (
                         <>
@@ -1881,19 +1901,18 @@ export default function AdminPage() {
                     const sOrders = orders.filter(
                       (o) => o.affiliateCode && o.affiliateCode.trim().toUpperCase() === s.affiliateCode.trim().toUpperCase()
                     );
-                    const sBottles = Math.max(
-                      s.bottlesSoldCount || 0,
-                      sOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
-                    );
-                    const sOrdersCount = Math.max(s.ordersCount || 0, sOrders.length);
-                    const sTotalEarned = Math.max(
-                      s.totalEarned || 0,
-                      sOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
-                    );
+                    const sBottles = sOrders.length > 0
+                      ? sOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
+                      : (s.bottlesSoldCount || 0);
+                    const sOrdersCount = sOrders.length > 0 ? sOrders.length : (s.ordersCount || 0);
+                    const sTotalEarned = sOrders.length > 0
+                      ? sOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
+                      : (s.totalEarned || 0);
                     const sBalance = Math.max(
-                      s.balance || 0,
-                      sTotalEarned - (s.totalWithdrawn || 0)
+                      0,
+                      (sOrders.length > 0 ? sTotalEarned : (s.balance || 0)) - (s.totalWithdrawn || 0)
                     );
+
 
                     return (
                       <div
@@ -2068,19 +2087,18 @@ export default function AdminPage() {
                         const sOrders = orders.filter(
                           (o) => o.affiliateCode && o.affiliateCode.trim().toUpperCase() === s.affiliateCode.trim().toUpperCase()
                         );
-                        const sBottles = Math.max(
-                          s.bottlesSoldCount || 0,
-                          sOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
-                        );
-                        const sOrdersCount = Math.max(s.ordersCount || 0, sOrders.length);
-                        const sTotalEarned = Math.max(
-                          s.totalEarned || 0,
-                          sOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
-                        );
+                        const sBottles = sOrders.length > 0
+                          ? sOrders.reduce((sum, o) => sum + o.items.reduce((acc, it) => acc + it.quantity, 0), 0)
+                          : (s.bottlesSoldCount || 0);
+                        const sOrdersCount = sOrders.length > 0 ? sOrders.length : (s.ordersCount || 0);
+                        const sTotalEarned = sOrders.length > 0
+                          ? sOrders.reduce((sum, o) => sum + (o.sellerCommission || 0), 0)
+                          : (s.totalEarned || 0);
                         const sBalance = Math.max(
-                          s.balance || 0,
-                          sTotalEarned - (s.totalWithdrawn || 0)
+                          0,
+                          (sOrders.length > 0 ? sTotalEarned : (s.balance || 0)) - (s.totalWithdrawn || 0)
                         );
+
 
                         return (
                           <tr
@@ -3391,23 +3409,29 @@ export default function AdminPage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={isSavingSeller}
                   onClick={() => {
                     if (sellerForm.status === "pending") {
                       setSellerForm((prev) => ({ ...prev, status: "active" }));
                     }
                   }}
                   className={`flex-1 sm:flex-initial justify-center px-6 py-2.5 text-xs font-bold shadow-md hover:scale-[1.02] active:scale-98 transition-all ${
+                    isSavingSeller ? "opacity-60 cursor-not-allowed" : ""
+                  } ${
                     sellerForm.status === "pending"
                       ? "bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                       : "btn-mewmao-black"
                   }`}
                 >
-                  {sellerForm.status === "pending"
+                  {isSavingSeller
+                    ? "Đang lưu..."
+                    : sellerForm.status === "pending"
                     ? "✓ Duyệt & Kích Hoạt Seller"
                     : editingSellerId
                     ? "Lưu Thay Đổi"
                     : "Tạo Seller Ngay"}
                 </button>
+
               </div>
             </form>
           </div>

@@ -35,6 +35,30 @@ export async function GET(request: Request) {
       .eq("seller_id", seller.id)
       .order("created_at", { ascending: false });
 
+    const ordersBottles = (dbOrders || []).reduce(
+      (sum: number, o: any) =>
+        sum +
+        (Array.isArray(o.items)
+          ? o.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) || 1), 0)
+          : 0),
+      0
+    );
+    const ordersCommission = (dbOrders || []).reduce(
+      (sum: number, o: any) => sum + (Number(o.seller_commission) || 0),
+      0
+    );
+    const totalWithdrawn = Number(seller.total_withdrawn) || 0;
+    const bottlesSoldCount =
+      dbOrders && dbOrders.length > 0 ? ordersBottles : (Number(seller.bottles_sold_count) || 0);
+    const ordersCount =
+      dbOrders && dbOrders.length > 0 ? dbOrders.length : (Number(seller.orders_count) || 0);
+    const totalEarned =
+      dbOrders && dbOrders.length > 0 ? ordersCommission : (Number(seller.total_earned) || 0);
+    const balance = Math.max(
+      0,
+      (dbOrders && dbOrders.length > 0 ? totalEarned : (Number(seller.balance) || 0)) - totalWithdrawn
+    );
+
     const sanitizedSeller = {
       id: seller.id,
       name: seller.name,
@@ -47,11 +71,11 @@ export async function GET(request: Request) {
         seller.commission_rate !== null && seller.commission_rate !== undefined
           ? Number(seller.commission_rate)
           : 0.15,
-      balance: Number(seller.balance) || 0,
-      totalWithdrawn: Number(seller.total_withdrawn) || 0,
-      totalEarned: Number(seller.total_earned) || 0,
-      ordersCount: Number(seller.orders_count) || 0,
-      bottlesSoldCount: Number(seller.bottles_sold_count) || 0,
+      balance,
+      totalWithdrawn,
+      totalEarned,
+      ordersCount,
+      bottlesSoldCount,
       bankInfo: {
         bankName: seller.bank_name || "",
         accountNumber: seller.account_number || "",
@@ -59,6 +83,7 @@ export async function GET(request: Request) {
       },
       createdAt: seller.created_at ? seller.created_at.split("T")[0] : "",
     };
+
 
     const mappedOrders = (dbOrders || []).map((o: any) => ({
       id: o.id,

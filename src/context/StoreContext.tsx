@@ -121,6 +121,15 @@ function getAffiliateCookie(): string | null {
   }
 }
 
+function getAdminAuthHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token =
+    sessionStorage.getItem("mewmao_admin_token") ||
+    localStorage.getItem("mewmao_admin_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+
 const DEFAULT_VOUCHERS: Voucher[] = [
   {
     id: "voucher-1",
@@ -289,8 +298,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const isAdminUnlocked = sessionStorage.getItem("mewmao_admin_session_unlocked") === "true";
     if (isAdminUnlocked) {
       try {
-        const adminRes = await fetch("/api/admin/data");
+        const adminRes = await fetch("/api/admin/data", {
+          headers: getAdminAuthHeaders(),
+        });
         if (adminRes.ok) {
+
           const adminData = await adminRes.json();
           if (adminData.success && adminData.data) {
             if (Array.isArray(adminData.data.sellers)) setSellers(adminData.data.sellers);
@@ -634,12 +646,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const res = await fetch("/api/sellers", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAdminAuthHeaders(),
+      },
       body: JSON.stringify(dbPayload),
     });
 
     if (res.ok) {
       setSellers((prev) => [newSeller, ...prev]);
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      const errMsg = errData.error || `Lỗi máy chủ (${res.status})`;
+      throw new Error(errMsg);
     }
 
     return newSeller;
@@ -745,12 +764,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/sellers", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAdminAuthHeaders(),
+        },
         body: JSON.stringify({ id: sellerId, updates: dbUpdates }),
       });
-      return res.ok;
-    } catch {
-      return false;
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Cập nhật Seller không thành công");
+      }
+      return true;
+    } catch (err: any) {
+      console.error("Update seller error:", err);
+      throw err;
     }
   };
 
@@ -759,20 +786,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/sellers", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAdminAuthHeaders(),
+        },
         body: JSON.stringify({ id: sellerId }),
       });
-      if (res.ok) {
-        setSellers((prev) => prev.filter((s) => s.id !== sellerId));
-        return true;
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Xóa Seller không thành công");
       }
-    } catch (e) {
+      setSellers((prev) => prev.filter((s) => s.id !== sellerId));
+      return true;
+    } catch (e: any) {
       console.error("Delete seller error:", e);
+      throw e;
     }
-    return false;
   };
 
   // ── YÊU CẦU RÚT TIỀN (SELLER) ──
+
   const requestPayout = async (sellerId: string, amount: number): Promise<boolean> => {
     try {
       const res = await fetch("/api/payouts", {
