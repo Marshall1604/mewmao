@@ -533,8 +533,9 @@ export default function AdminPage() {
 
   const handleOpenEditSeller = (seller: Seller, forceApprove = false) => {
     setEditingSellerId(seller.id);
-    const ratePercent = Number((seller.commissionRate * 100).toFixed(1));
-    const amountVal = Math.round(product.price * seller.commissionRate);
+    const rawRate = Number(seller.commissionRate) || 0;
+    const amountVal = Math.round(product.price * rawRate);
+    const displayPercent = parseFloat((rawRate * 100).toFixed(2));
     setSellerForm({
       name: seller.name,
       email: seller.email,
@@ -542,12 +543,12 @@ export default function AdminPage() {
       affiliateCode: seller.affiliateCode,
       pin: seller.pin || "123456",
       status: forceApprove ? "active" : (seller.status || "active"),
-      commissionRate: ratePercent,
+      commissionRate: rawRate * 100,
       bankName: seller.bankInfo.bankName,
       accountNumber: seller.bankInfo.accountNumber,
       accountHolder: seller.bankInfo.accountHolder,
     });
-    setCommissionPercentInput(ratePercent.toString());
+    setCommissionPercentInput(displayPercent.toString());
     setCommissionAmountInput(amountVal.toLocaleString("vi-VN"));
     setSellerModalOpen(true);
   };
@@ -579,12 +580,14 @@ export default function AdminPage() {
     const num = parseInt(rawNumberStr, 10);
     setCommissionAmountInput(num.toLocaleString("vi-VN"));
     if (product.price > 0) {
-      const calculatedPercent = Number(((num / product.price) * 100).toFixed(1));
-      const clamped = Math.max(0, Math.min(100, calculatedPercent));
-      setCommissionPercentInput(clamped.toString());
-      setSellerForm((prev) => ({ ...prev, commissionRate: clamped }));
+      const exactRateFraction = Math.max(0, Math.min(1, num / product.price));
+      const exactPercent = exactRateFraction * 100;
+      const displayPercent = parseFloat(exactPercent.toFixed(2));
+      setCommissionPercentInput(displayPercent.toString());
+      setSellerForm((prev) => ({ ...prev, commissionRate: exactPercent }));
     }
   };
+
 
   const handleSendSellerNotification = async (
     payload: {
