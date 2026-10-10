@@ -9,10 +9,17 @@ export function getSupabaseAdmin(): SupabaseClient {
   }
 
   const supabaseUrl = sanitizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const serviceKey = sanitizeSupabaseKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  
+  // Ưu tiên Service Role Key. Nếu Vercel chưa có SUPABASE_SERVICE_ROLE_KEY trong Environment Variables,
+  // tự động fallback về NEXT_PUBLIC_SUPABASE_ANON_KEY để không bị crash khi thêm/sửa seller.
+  const serviceKey = sanitizeSupabaseKey(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+
 
   if (!serviceKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not defined in server environment");
+    throw new Error("Không thể khởi tạo kết nối cơ sở dữ liệu Supabase");
   }
 
   cachedAdminClient = createClient(supabaseUrl, serviceKey, {
@@ -24,3 +31,4 @@ export function getSupabaseAdmin(): SupabaseClient {
 
   return cachedAdminClient;
 }
+
